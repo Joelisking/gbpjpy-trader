@@ -49,20 +49,53 @@ def get_mt5_timeframe(tf_str: str):
     return mapping[tf_str]
 
 
+CHUNK_SIZE = 99_000  # MT5 hard cap is 100k bars per call — stay just under
+
+
 def export_symbol(symbol: str, tf_str: str) -> pd.DataFrame:
+    """Fetch all available history in chunks to work around MT5's 100k bar limit."""
     import MetaTrader5 as mt5
 
     tf = get_mt5_timeframe(tf_str)
-    rates = mt5.copy_rates_range(symbol, tf, EXPORT_START, EXPORT_END)
+    chunks = []
+    fetch_end = EXPORT_END
 
-    if rates is None or len(rates) == 0:
+    print(f"  Fetching in chunks (MT5 limit: 100k bars/call)...")
+
+    while True:
+        rates = mt5.copy_rates_range(symbol, tf, EXPORT_START, fetch_end)
+
+        if rates is None or len(rates) == 0:
+            break
+
+        chunk = pd.DataFrame(rates)
+        chunk["time"] = pd.to_datetime(chunk["time"], unit="s")
+        chunk = chunk.set_index("time")
+        chunk = chunk.sort_index()
+        chunks.append(chunk)
+
+        earliest = chunk.index[0]
+        print(f"    Chunk: {len(chunk):,} bars | {earliest} → {chunk.index[-1]}")
+
+        # If we got fewer bars than the chunk size, we've reached the full history
+        if len(rates) < CHUNK_SIZE:
+            break
+
+        # If the earliest bar is already at or before our target start, done
+        if earliest <= pd.Timestamp(EXPORT_START):
+            break
+
+        # Move the end window back by 1 minute before the earliest bar we got
+        fetch_end = (earliest - pd.Timedelta(minutes=1)).to_pydatetime()
+
+    if not chunks:
         print(f"  WARNING: No data returned for {symbol} {tf_str}")
         return pd.DataFrame()
 
-    df = pd.DataFrame(rates)
-    df["time"] = pd.to_datetime(df["time"], unit="s")
+    df = pd.concat(chunks)
+    df = df[~df.index.duplicated(keep="last")]
+    df = df.sort_index()
     df = df.rename(columns={
-        "time": "timestamp",
         "open": "open",
         "high": "high",
         "low": "low",
@@ -71,8 +104,7 @@ def export_symbol(symbol: str, tf_str: str) -> pd.DataFrame:
         "spread": "spread",
         "real_volume": "real_volume",
     })
-    df = df.set_index("timestamp")
-    df = df.sort_index()
+    df.index.name = "timestamp"
     return df
 
 
