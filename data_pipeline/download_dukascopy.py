@@ -19,7 +19,7 @@ import lzma
 import os
 import struct
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -145,8 +145,7 @@ def download_symbol_ticks(symbol: str) -> pd.DataFrame:
             pct = processed / total_hours * 100
             print(f"  Progress: {pct:.1f}% | {current.date()} | ticks so far: {ticks_total:,}")
 
-        current = current.replace(hour=current.hour) + pd.Timedelta(hours=1)
-        current = current.to_pydatetime()
+        current = current + timedelta(hours=1)
 
     if not all_chunks:
         print(f"  ERROR: No data downloaded for {symbol}")
