@@ -1,4 +1,4 @@
-# Python-generated files
+# Python
 __pycache__/
 *.py[oc]
 build/
@@ -7,4 +7,38 @@ wheels/
 *.egg-info
 
 # Virtual environments
-.venv
+.venv/
+
+# Large data files — download locally, don't commit
+data/
+!data/.gitkeep
+
+# Dukascopy tick cache — very large, rebuilt by download_dukascopy.py
+data/_dukascopy_cache/
+
+# Trained model binaries — transfer via SCP after training
+models/*.h5
+models/*.json
+models/*.pkl
+!models/.gitkeep
+
+# Live database — VPS manages its own
+db/trades.db
+
+# Logs
+logs/*.log
+
+# Backtest HTML reports — large, keep locally
+backtest_results/*.html
+!backtest_results/.gitkeep
+
+# Secrets — NEVER commit
+config.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
