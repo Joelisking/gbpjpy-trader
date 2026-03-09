@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(awk NR>=42 && NR<=200:*)",
+      "Bash(awk NR>=200 && NR<=400:*)",
+      "Bash(awk NR>=400 && NR<=600:*)",
+      "Bash(awk NR>=600 && NR<=849:*)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Bash(uv:*)"
+    ]
+  }
+}

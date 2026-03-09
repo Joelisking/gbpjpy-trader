@@ -1,0 +1,59 @@
+[project]
+name = "gbpjpy-trader"
+version = "0.1.0"
+description = "GBP/JPY AI-Powered Trading Bot — Scalper + Swing with BiLSTM/XGBoost"
+requires-python = ">=3.11"
+dependencies = [
+    # Data
+    "pandas>=2.1",
+    "numpy>=1.26",
+    "pyarrow>=14.0",
+
+    # ML — core (Phase 3)
+    "xgboost>=2.0",
+    "scikit-learn>=1.3",
+    "imbalanced-learn>=0.11",
+    "optuna>=3.4",
+
+    # Feeds & APIs
+    "requests>=2.31",
+    "feedparser>=6.0",
+    "yfinance>=0.2.36",
+    "websockets>=12.0",
+
+    # Telegram
+    "python-telegram-bot>=20.7",
+
+    # Visualisation
+    "matplotlib>=3.8",
+    "plotly>=5.18",
+
+    # Utilities
+    "joblib>=1.3",
+]
+
+[project.optional-dependencies]
+# TensorFlow is large — install separately for Phase 3
+ai = [
+    "tensorflow>=2.15",
+]
+# TA-Lib needs the C library installed first (brew install ta-lib on Mac)
+talib = [
+    "TA-Lib>=0.4.28",
+]
+# Windows VPS only
+mt5 = [
+    "MetaTrader5>=5.0.45",
+]
+dev = [
+    "pytest>=7.4",
+    "ruff>=0.3",
+]
+
+[tool.uv]
+# Allow lock file to work across Mac (dev) and Windows VPS (production)
+environments = ["sys_platform == 'darwin'", "sys_platform == 'win32'"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

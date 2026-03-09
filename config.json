@@ -1,0 +1,136 @@
+{
+  "version": "1.0",
+  "symbol": "GBPJPY",
+  "correlation_symbol": "EURJPY",
+
+  "ai_server": {
+    "host": "127.0.0.1",
+    "port": 5001,
+    "timeout_ms": 500,
+    "max_response_ms": 200
+  },
+
+  "scalper": {
+    "timeframe_direction": "M5",
+    "timeframe_entry": "M1",
+    "risk_percent": 1.5,
+    "session_risk_cap_pct": 10.0,
+    "session_halt_pct": 7.0,
+    "ai_min_score": 65,
+    "ai_high_score": 80,
+    "tp_pips_min": 25,
+    "tp_pips_max": 35,
+    "tp_pips_extended": 45,
+    "sl_pips_min": 12,
+    "sl_pips_max": 18,
+    "breakeven_trigger_pips": 12,
+    "trailing_stop_pips": 12,
+    "max_hold_minutes": 20,
+    "momentum_tp_trigger_pips": 15,
+    "atr_min_pips": 4,
+    "rsi_period": 7,
+    "rsi_long_min": 40,
+    "rsi_long_max": 55,
+    "rsi_short_min": 45,
+    "rsi_short_max": 60,
+    "max_spread_pips": 30,
+    "london_spike_block_start_utc": "07:55",
+    "london_spike_block_end_utc": "08:15",
+    "max_sessions_per_day": 2,
+    "weekly_drawdown_cap_pct": 8.0,
+    "cascade": {
+      "entry1_lots": 0.01,
+      "entry2_lots": 0.02,
+      "entry3_lots": 0.02,
+      "entry4_lots": 0.01,
+      "entry3_body_ratio": 0.70
+    }
+  },
+
+  "swing": {
+    "timeframe_direction": "H4",
+    "timeframe_entry": "H1",
+    "risk_percent": 2.0,
+    "ai_trend_score_min": 70,
+    "ai_trend_score_collapse": 40,
+    "tp1_rr": 1.5,
+    "tp2_rr": 3.0,
+    "tp1_close_pct": 50,
+    "sl_pips_min": 45,
+    "sl_pips_max": 70,
+    "max_hold_hours": 48,
+    "max_hold_hours_post_boe": 72,
+    "trailing_stop_pips_4h": 20,
+    "max_spread_pips": 40,
+    "rsi_period": 14,
+    "rsi_pullback_min": 40,
+    "rsi_pullback_max": 55,
+    "carry_trade_rate_diff_threshold": 2.0,
+    "carry_trade_ai_score_reduction": 5,
+    "news_lockout_hours": 4
+  },
+
+  "news_shield": {
+    "pre_news_lockdown_minutes": 60,
+    "preparation_window_minutes": 30,
+    "post_news_entry_start_minutes": 15,
+    "post_news_entry_end_minutes": 60,
+    "post_news_position_size_pct": 50,
+    "spread_threshold_post_news_pips": 30,
+    "spread_safety_buffer_minutes": 10,
+    "boj_post_block_minutes": 90,
+    "extreme_spread_threshold_pips": 60,
+    "boj_keywords": [
+      "intervene", "intervention", "excessive move", "one-sided",
+      "smooth", "BoJ buys", "Finance Minister", "MOF",
+      "currency check", "speculative"
+    ],
+    "boj_scan_interval_seconds": 60,
+    "calendar_poll_interval_minutes": 30
+  },
+
+  "ai": {
+    "entry_score_threshold": 65,
+    "trend_score_threshold": 70,
+    "news_risk_pause_threshold": 70,
+    "news_risk_half_size_threshold": 40,
+    "bilstm_weight": 0.60,
+    "xgboost_weight": 0.40,
+    "sequence_length": 200,
+    "n_features": 30,
+    "scalper_accuracy_target": 0.65,
+    "swing_accuracy_target": 0.62,
+    "retrain_accuracy_drop_pct": 5,
+    "boe_post_decision_confidence_threshold": 75
+  },
+
+  "telegram": {
+    "bot_token": "YOUR_BOT_TOKEN_HERE",
+    "chat_id": "YOUR_CHAT_ID_HERE",
+    "daily_summary_utc": "22:00"
+  },
+
+  "database": {
+    "path": "db/trades.db"
+  },
+
+  "performance_targets": {
+    "scalper_win_rate_min": 0.55,
+    "scalper_win_rate_stop": 0.48,
+    "swing_win_rate_min": 0.52,
+    "swing_win_rate_stop": 0.45,
+    "profit_factor_min": 1.2,
+    "profit_factor_stop": 1.0,
+    "max_drawdown_pct": 15.0,
+    "max_drawdown_stop_pct": 20.0,
+    "monthly_return_min_pct": 3.0,
+    "sharpe_ratio_min": 1.0
+  },
+
+  "macro_feeds": {
+    "equity_poll_interval_minutes": 15,
+    "nikkei_symbol": "^N225",
+    "sp500_futures_symbol": "ES=F",
+    "eurjpy_timeframe": "M5"
+  }
+}
