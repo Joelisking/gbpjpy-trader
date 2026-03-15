@@ -27,7 +27,7 @@ private:
     // Returns true if there's a bullish rejection candle on the last closed bar (shift=1)
     bool HasBullishRejectionCandle()
     {
-        double o[1], h[1], l[1], c[1];
+        double o[], h[], l[], c[];
         ArraySetAsSeries(o, true); ArraySetAsSeries(h, true);
         ArraySetAsSeries(l, true); ArraySetAsSeries(c, true);
 
@@ -58,7 +58,7 @@ private:
 
     bool HasBearishRejectionCandle()
     {
-        double o[1], h[1], l[1], c[1];
+        double o[], h[], l[], c[];
         ArraySetAsSeries(o, true); ArraySetAsSeries(h, true);
         ArraySetAsSeries(l, true); ArraySetAsSeries(c, true);
 

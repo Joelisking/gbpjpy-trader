@@ -125,7 +125,7 @@ private:
     bool IsMomentumCandle()
     {
         // Entry 3 trigger: body > 70% of full candle range on last closed 1M bar
-        double o[1], h[1], l[1], c[1];
+        double o[], h[], l[], c[];
         ArraySetAsSeries(o, true); ArraySetAsSeries(h, true);
         ArraySetAsSeries(l, true); ArraySetAsSeries(c, true);
         if(CopyOpen (_Symbol, PERIOD_M1, 1, 1, o) != 1) return false;

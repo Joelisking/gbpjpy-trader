@@ -44,13 +44,13 @@ private:
     // Bullish engulfing=+2, Hammer=+1, Doji=0, Bearish engulfing=-2, Shooting star=-1
     double EncodeCandlePattern(ENUM_TIMEFRAMES tf, int shift)
     {
-        double o[1], h[1], l[1], c[1];
+        double o[], h[], l[], c[];
         ArraySetAsSeries(o, true); ArraySetAsSeries(h, true);
         ArraySetAsSeries(l, true); ArraySetAsSeries(c, true);
-        if(CopyOpen (tf, shift, 1, o) != 1) return 0;
-        if(CopyHigh (tf, shift, 1, h) != 1) return 0;
-        if(CopyLow  (tf, shift, 1, l) != 1) return 0;
-        if(CopyClose(tf, shift, 1, c) != 1) return 0;
+        if(CopyOpen (_Symbol, tf, shift, 1, o) != 1) return 0;
+        if(CopyHigh (_Symbol, tf, shift, 1, h) != 1) return 0;
+        if(CopyLow  (_Symbol, tf, shift, 1, l) != 1) return 0;
+        if(CopyClose(_Symbol, tf, shift, 1, c) != 1) return 0;
 
         double body  = MathAbs(c[0] - o[0]);
         double range = h[0] - l[0];
@@ -85,13 +85,13 @@ private:
 
     double GetVolumeRatio(ENUM_TIMEFRAMES tf, int currentShift = 0, int lookback = 20)
     {
-        double vol[];
+        long vol[];
         ArraySetAsSeries(vol, true);
         if(CopyTickVolume(_Symbol, tf, currentShift, lookback + 1, vol) != lookback + 1) return 1.0;
         double avg = 0;
         for(int i = 1; i <= lookback; i++) avg += (double)vol[i];
         avg /= lookback;
-        return (avg > 0) ? vol[0] / avg : 1.0;
+        return (avg > 0) ? (double)vol[0] / avg : 1.0;
     }
 
 public:
