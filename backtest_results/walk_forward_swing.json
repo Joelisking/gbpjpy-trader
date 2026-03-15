@@ -8,10 +8,10 @@
       "seg_end": "2010-12-06",
       "n_train": 33357,
       "n_test": 11158,
-      "auc": 0.749,
-      "accuracy": 0.6871,
-      "precision": 0.6228,
-      "recall": 0.5567
+      "auc": 0.7544,
+      "accuracy": 0.6919,
+      "precision": 0.6313,
+      "recall": 0.5562
     },
     {
       "skip": false,
@@ -20,10 +20,10 @@
       "seg_end": "2012-10-05",
       "n_train": 44515,
       "n_test": 11159,
-      "auc": 0.6104,
-      "accuracy": 0.6062,
-      "precision": 0.4248,
-      "recall": 0.369
+      "auc": 0.642,
+      "accuracy": 0.6231,
+      "precision": 0.4553,
+      "recall": 0.4189
     },
     {
       "skip": false,
@@ -32,10 +32,10 @@
       "seg_end": "2014-08-14",
       "n_train": 55674,
       "n_test": 11159,
-      "auc": 0.6352,
-      "accuracy": 0.6343,
-      "precision": 0.454,
-      "recall": 0.4282
+      "auc": 0.6437,
+      "accuracy": 0.6339,
+      "precision": 0.456,
+      "recall": 0.4559
     },
     {
       "skip": false,
@@ -44,10 +44,10 @@
       "seg_end": "2016-07-13",
       "n_train": 66833,
       "n_test": 11159,
-      "auc": 0.6849,
-      "accuracy": 0.6352,
-      "precision": 0.5519,
-      "recall": 0.5014
+      "auc": 0.6851,
+      "accuracy": 0.6343,
+      "precision": 0.5529,
+      "recall": 0.4814
     },
     {
       "skip": false,
@@ -56,10 +56,10 @@
       "seg_end": "2018-08-16",
       "n_train": 77992,
       "n_test": 11158,
-      "auc": 0.6624,
-      "accuracy": 0.6335,
-      "precision": 0.5191,
-      "recall": 0.4383
+      "auc": 0.6625,
+      "accuracy": 0.6363,
+      "precision": 0.5246,
+      "recall": 0.4208
     },
     {
       "skip": false,
@@ -68,10 +68,10 @@
       "seg_end": "2020-08-27",
       "n_train": 89150,
       "n_test": 11159,
-      "auc": 0.653,
-      "accuracy": 0.6318,
-      "precision": 0.4917,
-      "recall": 0.4291
+      "auc": 0.6628,
+      "accuracy": 0.6407,
+      "precision": 0.5062,
+      "recall": 0.4119
     },
     {
       "skip": false,
@@ -80,10 +80,10 @@
       "seg_end": "2022-07-06",
       "n_train": 100309,
       "n_test": 11159,
-      "auc": 0.6444,
-      "accuracy": 0.622,
-      "precision": 0.4995,
-      "recall": 0.449
+      "auc": 0.6475,
+      "accuracy": 0.6217,
+      "precision": 0.4991,
+      "recall": 0.4452
     },
     {
       "skip": false,
@@ -92,10 +92,10 @@
       "seg_end": "2024-05-07",
       "n_train": 111468,
       "n_test": 11159,
-      "auc": 0.6815,
-      "accuracy": 0.6385,
-      "precision": 0.4814,
-      "recall": 0.5228
+      "auc": 0.6932,
+      "accuracy": 0.6459,
+      "precision": 0.4906,
+      "recall": 0.4973
     },
     {
       "skip": false,
@@ -104,18 +104,18 @@
       "seg_end": "2026-03-10",
       "n_train": 122627,
       "n_test": 11158,
-      "auc": 0.7083,
-      "accuracy": 0.6613,
-      "precision": 0.5304,
-      "recall": 0.584
+      "auc": 0.7175,
+      "accuracy": 0.6692,
+      "precision": 0.5436,
+      "recall": 0.5523
     }
   ],
   "summary": {
-    "mean_auc": 0.6699,
-    "std_auc": 0.0392,
-    "mean_precision": 0.5084,
-    "std_precision": 0.0544,
-    "mean_accuracy": 0.6389,
+    "mean_auc": 0.6787,
+    "std_auc": 0.0358,
+    "mean_precision": 0.5177,
+    "std_precision": 0.0514,
+    "mean_accuracy": 0.6441,
     "segments_flagged": 0
   }
 }

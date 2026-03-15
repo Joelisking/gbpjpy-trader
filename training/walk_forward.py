@@ -168,10 +168,22 @@ def run_swing_segment(X_scaled, y_raw, index, train_end, seg_start, seg_end,
     n_neg = len(y_tr) - n_pos
     spw   = float(n_neg / max(n_pos, 1))
 
-    n_trees = 50 if fast else 200
+    # Use Optuna-tuned params (from training/tune_swing_xgb.py) so WF
+    # matches the production model. Fast mode cuts trees for speed.
+    n_trees = 100 if fast else 835
     xgb_model = xgb.XGBClassifier(
-        n_estimators=n_trees, max_depth=5, learning_rate=0.1,
-        scale_pos_weight=spw, objective="binary:logistic",
+        n_estimators=n_trees,
+        max_depth=8,
+        learning_rate=0.01446,
+        subsample=0.7338,
+        colsample_bytree=0.6647,
+        colsample_bylevel=0.7727,
+        min_child_weight=24,
+        reg_alpha=0.05843,
+        reg_lambda=0.6204,
+        gamma=0.8997,
+        scale_pos_weight=spw,
+        objective="binary:logistic",
         n_jobs=-1, random_state=42, verbosity=0,
     )
     xgb_model.fit(X_tr, y_tr)
