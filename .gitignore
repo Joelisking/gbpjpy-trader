@@ -9,18 +9,15 @@ wheels/
 # Virtual environments
 .venv/
 
-# Large data files — download locally, don't commit
-data/
+# Large raw data files — download locally with download_dukascopy.py, don't commit
+# Scalers (scaler_*.pkl) are excluded from this rule — needed for VPS inference
+data/*
 !data/.gitkeep
+!data/scaler_*.pkl
 
-# Dukascopy tick cache — very large, rebuilt by download_dukascopy.py
-data/_dukascopy_cache/
-
-# Trained model binaries — transfer via SCP after training
-models/*.h5
-models/*.json
-models/*.pkl
-!models/.gitkeep
+# Model backups — v1/v2 are labelled backup files, don't commit
+models/*_v1.*
+models/*_v2.*
 
 # Live database — VPS manages its own
 db/trades.db
@@ -30,7 +27,7 @@ logs/*.log
 
 # Backtest HTML reports — large, keep locally
 backtest_results/*.html
-!backtest_results/.gitkeep
+!backtest_results/*.json    # walk-forward results — small, useful on VPS
 
 # Secrets — NEVER commit
 config.json

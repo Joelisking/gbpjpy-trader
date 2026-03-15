@@ -1,0 +1,121 @@
+{
+  "model": "swing",
+  "segments": [
+    {
+      "skip": false,
+      "train_end": "2009-02-06",
+      "seg_start": "2009-02-06",
+      "seg_end": "2010-12-06",
+      "n_train": 33357,
+      "n_test": 11158,
+      "auc": 0.749,
+      "accuracy": 0.6871,
+      "precision": 0.6228,
+      "recall": 0.5567
+    },
+    {
+      "skip": false,
+      "train_end": "2010-12-06",
+      "seg_start": "2010-12-06",
+      "seg_end": "2012-10-05",
+      "n_train": 44515,
+      "n_test": 11159,
+      "auc": 0.6104,
+      "accuracy": 0.6062,
+      "precision": 0.4248,
+      "recall": 0.369
+    },
+    {
+      "skip": false,
+      "train_end": "2012-10-05",
+      "seg_start": "2012-10-05",
+      "seg_end": "2014-08-14",
+      "n_train": 55674,
+      "n_test": 11159,
+      "auc": 0.6352,
+      "accuracy": 0.6343,
+      "precision": 0.454,
+      "recall": 0.4282
+    },
+    {
+      "skip": false,
+      "train_end": "2014-08-14",
+      "seg_start": "2014-08-14",
+      "seg_end": "2016-07-13",
+      "n_train": 66833,
+      "n_test": 11159,
+      "auc": 0.6849,
+      "accuracy": 0.6352,
+      "precision": 0.5519,
+      "recall": 0.5014
+    },
+    {
+      "skip": false,
+      "train_end": "2016-07-13",
+      "seg_start": "2016-07-13",
+      "seg_end": "2018-08-16",
+      "n_train": 77992,
+      "n_test": 11158,
+      "auc": 0.6624,
+      "accuracy": 0.6335,
+      "precision": 0.5191,
+      "recall": 0.4383
+    },
+    {
+      "skip": false,
+      "train_end": "2018-08-16",
+      "seg_start": "2018-08-16",
+      "seg_end": "2020-08-27",
+      "n_train": 89150,
+      "n_test": 11159,
+      "auc": 0.653,
+      "accuracy": 0.6318,
+      "precision": 0.4917,
+      "recall": 0.4291
+    },
+    {
+      "skip": false,
+      "train_end": "2020-08-27",
+      "seg_start": "2020-08-27",
+      "seg_end": "2022-07-06",
+      "n_train": 100309,
+      "n_test": 11159,
+      "auc": 0.6444,
+      "accuracy": 0.622,
+      "precision": 0.4995,
+      "recall": 0.449
+    },
+    {
+      "skip": false,
+      "train_end": "2022-07-06",
+      "seg_start": "2022-07-06",
+      "seg_end": "2024-05-07",
+      "n_train": 111468,
+      "n_test": 11159,
+      "auc": 0.6815,
+      "accuracy": 0.6385,
+      "precision": 0.4814,
+      "recall": 0.5228
+    },
+    {
+      "skip": false,
+      "train_end": "2024-05-07",
+      "seg_start": "2024-05-07",
+      "seg_end": "2026-03-10",
+      "n_train": 122627,
+      "n_test": 11158,
+      "auc": 0.7083,
+      "accuracy": 0.6613,
+      "precision": 0.5304,
+      "recall": 0.584
+    }
+  ],
+  "summary": {
+    "mean_auc": 0.6699,
+    "std_auc": 0.0392,
+    "mean_precision": 0.5084,
+    "std_precision": 0.0544,
+    "mean_accuracy": 0.6389,
+    "segments_flagged": 0
+  }
+}

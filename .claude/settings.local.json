@@ -7,7 +7,10 @@
       "Bash(awk NR>=600 && NR<=849:*)",
       "Bash(python:*)",
       "Bash(python3:*)",
-      "Bash(uv:*)"
+      "Bash(uv:*)",
+      "Bash(pkill -f \"train_scalper_model\" 2>/dev/null; echo \"killed\")",
+      "Bash(pkill -f \"train_scalper_model\" 2>/dev/null; pkill -f \"train_swing_model\" 2>/dev/null; echo \"killed all training processes\")",
+      "Bash(git check-ignore:*)"
     ]
   }
 }

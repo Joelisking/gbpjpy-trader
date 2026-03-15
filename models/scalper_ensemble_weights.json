@@ -1,0 +1,72 @@
+{
+  "bilstm_weight": 0.6,
+  "xgb_weight": 0.4,
+  "seq_len": 200,
+  "n_features": 40,
+  "feature_names": [
+    "m5_return",
+    "m5_ema9",
+    "m5_ema21",
+    "m5_ema50",
+    "m5_ema200",
+    "m5_atr",
+    "m5_rsi7",
+    "m5_macd_hist",
+    "m5_bb_pctb",
+    "m5_engulf",
+    "m5_pin",
+    "m5_vol_ratio",
+    "h1_return",
+    "h1_ema21",
+    "h1_ema50",
+    "h1_ema200",
+    "h1_rsi14",
+    "h1_macd_hist",
+    "h1_atr",
+    "h1_vol_ratio",
+    "h4_return",
+    "h4_ema50",
+    "h4_ema200",
+    "h4_rsi14",
+    "h4_atr",
+    "h4_structure",
+    "w1_return",
+    "w1_ema21",
+    "w1_ema50",
+    "w1_ema_stack",
+    "eurjpy_return_m5",
+    "eurjpy_ema_align",
+    "eurjpy_rsi_h1",
+    "time_sin_hour",
+    "time_cos_hour",
+    "time_sin_dow",
+    "time_cos_dow",
+    "london_session",
+    "overlap_session",
+    "carry_differential"
+  ],
+  "entry_threshold": 0.65,
+  "evaluation": {
+    "train": {
+      "mae": 0.0743,
+      "r2": 0.4004,
+      "accuracy": 0.916,
+      "precision": 0.93,
+      "recall": 0.0969
+    },
+    "val": {
+      "mae": 0.0779,
+      "r2": 0.3628,
+      "accuracy": 0.9054,
+      "precision": 0.8827,
+      "recall": 0.0869
+    },
+    "test": {
+      "mae": 0.0805,
+      "r2": 0.3329,
+      "accuracy": 0.8983,
+      "precision": 0.9,
+      "recall": 0.0433
+    }
+  }
+}

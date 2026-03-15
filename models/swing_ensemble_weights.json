@@ -1,0 +1,73 @@
+{
+  "bilstm_weight": 0.0,
+  "xgb_weight": 1.0,
+  "seq_len": 120,
+  "n_features": 40,
+  "feature_names": [
+    "m5_return",
+    "m5_ema9",
+    "m5_ema21",
+    "m5_ema50",
+    "m5_ema200",
+    "m5_atr",
+    "m5_rsi7",
+    "m5_macd_hist",
+    "m5_bb_pctb",
+    "m5_engulf",
+    "m5_pin",
+    "m5_vol_ratio",
+    "h1_return",
+    "h1_ema21",
+    "h1_ema50",
+    "h1_ema200",
+    "h1_rsi14",
+    "h1_macd_hist",
+    "h1_atr",
+    "h1_vol_ratio",
+    "h4_return",
+    "h4_ema50",
+    "h4_ema200",
+    "h4_rsi14",
+    "h4_atr",
+    "h4_structure",
+    "w1_return",
+    "w1_ema21",
+    "w1_ema50",
+    "w1_ema_stack",
+    "eurjpy_return_m5",
+    "eurjpy_ema_align",
+    "eurjpy_rsi_h1",
+    "time_sin_hour",
+    "time_cos_hour",
+    "time_sin_dow",
+    "time_cos_dow",
+    "london_session",
+    "overlap_session",
+    "carry_differential"
+  ],
+  "trend_threshold": 0.55,
+  "collapse_score": 0.3,
+  "resolution": "H1",
+  "subsample_step": 12,
+  "note": "BiLSTM disabled \u2014 overfits due to regime mismatch 2010-2021 vs 2023-2026. XGBoost val_AUC=0.66.",
+  "evaluation": {
+    "train": {
+      "accuracy": 0.6545,
+      "precision": 0.5291,
+      "recall": 0.5804,
+      "auc": 0.706
+    },
+    "val": {
+      "accuracy": 0.6328,
+      "precision": 0.5031,
+      "recall": 0.5389,
+      "auc": 0.678
+    },
+    "test": {
+      "accuracy": 0.6508,
+      "precision": 0.5145,
+      "recall": 0.4228,
+      "auc": 0.6618
+    }
+  }
+}

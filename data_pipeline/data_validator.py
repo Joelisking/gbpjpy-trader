@@ -31,8 +31,8 @@ REQUIRED_FILES = {
     "EURJPY_H1.parquet": {"min_rows": 50_000, "tf_minutes": 60},
 }
 
-GBPJPY_PRICE_RANGE = (80.0, 250.0)   # sanity bounds — pips checked against 0.01 unit
-MIN_DATE = pd.Timestamp("2003-01-01")
+GBPJPY_PRICE_RANGE = (100.0, 260.0)  # GBPJPY hit 251 in 2007 — 260 gives headroom
+MIN_DATE = pd.Timestamp("2003-08-01") # Dukascopy GBPJPY data begins Aug 2003
 
 
 def validate_file(filename: str, config: dict) -> dict:
