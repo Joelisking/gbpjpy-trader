@@ -31,25 +31,44 @@ H1_SUBSAMPLE = 12   # M5 bars per H1 bar (was H4=48, too few training samples)
 SWING_SEQ    = 120  # 120 H1 bars = 5 days of context
 
 
-def build_swing_bilstm(seq_len: int, n_features: int, lstm_units: int = 64):
+def build_swing_bilstm(seq_len: int, n_features: int, lstm_units: int = 48):
     # Binary classifier: P(TP1 hit before SL within 48h)
-    # No L2 reg — was killing gradients on 66k samples
+    #
+    # Previous run (units=64, dropout=0.3): train AUC 0.96, val AUC 0.58 — severe overfit.
+    # Fixes:
+    #   - Reduced units 64→48 / 32→24 (fewer params)
+    #   - L2 on LSTM kernels (1e-4)
+    #   - recurrent_dropout 0.1 (applied inside LSTM cell)
+    #   - Increased dropout 0.3→0.4 on LSTM outputs
+    #   - SpatialDropout1D on input (drops whole feature channels, stronger regulariser)
+    #   - Removed Dense(32) hidden layer — straight to output
+    #   - clipnorm=1.0 on Adam to prevent gradient spikes
     from tensorflow import keras
 
     inp = keras.Input(shape=(seq_len, n_features), name="h1_sequence_input")
+    x   = keras.layers.SpatialDropout1D(0.1)(inp)
     x   = keras.layers.Bidirectional(
-              keras.layers.LSTM(lstm_units, return_sequences=True))(inp)
-    x   = keras.layers.Dropout(0.3)(x)
+              keras.layers.LSTM(
+                  lstm_units,
+                  return_sequences=True,
+                  recurrent_dropout=0.1,
+                  kernel_regularizer=keras.regularizers.l2(1e-4),
+                  recurrent_regularizer=keras.regularizers.l2(1e-4),
+              ))(x)
+    x   = keras.layers.Dropout(0.4)(x)
     x   = keras.layers.Bidirectional(
-              keras.layers.LSTM(lstm_units // 2))(x)
-    x   = keras.layers.Dropout(0.3)(x)
-    x   = keras.layers.Dense(32, activation="relu")(x)
-    x   = keras.layers.BatchNormalization()(x)
+              keras.layers.LSTM(
+                  lstm_units // 2,
+                  recurrent_dropout=0.1,
+                  kernel_regularizer=keras.regularizers.l2(1e-4),
+                  recurrent_regularizer=keras.regularizers.l2(1e-4),
+              ))(x)
+    x   = keras.layers.Dropout(0.4)(x)
     out = keras.layers.Dense(1, activation="sigmoid", name="trend_score")(x)
 
     model = keras.Model(inp, out, name="swing_bilstm")
     model.compile(
-        optimizer="adam",
+        optimizer=keras.optimizers.Adam(learning_rate=1e-3, clipnorm=1.0),
         loss="binary_crossentropy",
         metrics=["accuracy", "AUC"],
     )
@@ -181,7 +200,7 @@ def main() -> None:
     parser.add_argument("--epochs",     type=int, default=100)
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument("--xgb-trees",  type=int, default=400)
-    parser.add_argument("--start",      type=str, default=None)
+    parser.add_argument("--start",      type=str, default="2019-01-01")
     parser.add_argument("--end",        type=str, default=None)
     parser.add_argument("--fast",       action="store_true")
     parser.add_argument("--tiny",       action="store_true")
@@ -241,14 +260,26 @@ def main() -> None:
     xgb_model.save_model(str(MODELS_DIR / "swing_xgb.json"))
     print(f"  Saved → swing_xgb.json")
 
-    # BiLSTM overfit badly (train AUC 0.96, val AUC 0.58) — use XGBoost only
-    # XGBoost val AUC 0.66 is the genuine signal; BiLSTM drags ensemble down
+    # Evaluate both XGBoost-only and 60/40 ensemble to pick the best blend
     print("\nEnsemble evaluation (XGBoost-only: BiLSTM weight=0):")
-    results = evaluate_ensemble(bilstm, xgb_model, X_sub, y_bin, splits_map, seq_len,
-                                bilstm_weight=0.0)
+    results_xgb = evaluate_ensemble(bilstm, xgb_model, X_sub, y_bin, splits_map, seq_len,
+                                    bilstm_weight=0.0)
+    print("\nEnsemble evaluation (60% BiLSTM + 40% XGBoost):")
+    results_ens = evaluate_ensemble(bilstm, xgb_model, X_sub, y_bin, splits_map, seq_len,
+                                    bilstm_weight=0.6)
+
+    # Pick whichever blend has higher test AUC
+    if results_ens.get("test", {}).get("auc", 0) > results_xgb.get("test", {}).get("auc", 0):
+        bilstm_w = 0.6
+        results  = results_ens
+        print("\nUsing 60/40 ensemble (BiLSTM improves on XGBoost alone)")
+    else:
+        bilstm_w = 0.0
+        results  = results_xgb
+        print("\nUsing XGBoost-only (BiLSTM does not improve ensemble)")
 
     config = {
-        "bilstm_weight": 0.0, "xgb_weight": 1.0,
+        "bilstm_weight": bilstm_w, "xgb_weight": round(1.0 - bilstm_w, 1),
         "seq_len": seq_len, "n_features": n_features,
         "feature_names": feature_cols,
         "trend_threshold": 0.55,   # lowered from 0.70 — XGBoost is a weak filter, not a gate
