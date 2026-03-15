@@ -12,6 +12,10 @@
 #ifndef SWING_TRENDANALYZER4H_MQH
 #define SWING_TRENDANALYZER4H_MQH
 
+#define DIR_NONE    0
+#define DIR_BULL    1
+#define DIR_BEAR   -1
+
 class CTrendAnalyzer4H
 {
 private:
@@ -227,7 +231,7 @@ public:
     // 4H candle closed below 200 EMA (for longs)
     bool Is200EMABreached(int direction)
     {
-        double ema[1], closes[1];
+        double ema[1], closes[];
         ArraySetAsSeries(closes, true);
         if(CopyBuffer(m_hEMA200_4H, 0, 1, 1, ema)       != 1) return false;
         if(CopyClose(_Symbol, PERIOD_H4, 1, 1, closes)   != 1) return false;

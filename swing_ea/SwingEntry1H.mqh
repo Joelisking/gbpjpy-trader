@@ -25,7 +25,7 @@ private:
     // Returns true if the last CLOSED 1H candle body closes in direction
     bool IsConfirmationCandle(int direction)
     {
-        double opens[1], closes[1];
+        double opens[], closes[];
         ArraySetAsSeries(opens,  true);
         ArraySetAsSeries(closes, true);
 

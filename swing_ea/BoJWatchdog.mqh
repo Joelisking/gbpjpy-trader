@@ -38,7 +38,9 @@ private:
             content = FileReadString(handle);
         FileClose(handle);
 
-        return (StringTrimLeft(StringTrimRight(content)) == "1");
+        StringTrimRight(content);
+        StringTrimLeft(content);
+        return (content == "1");
     }
 
     // Check for rapid M1 price move (JPY pair velocity)
