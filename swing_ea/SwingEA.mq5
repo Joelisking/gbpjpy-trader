@@ -17,6 +17,7 @@
 #include "SwingPositionManager.mqh"
 #include "BoJWatchdog.mqh"
 #include "AIClient.mqh"
+#include "FeatureBuilder.mqh"
 
 //-- Inputs ------------------------------------------------------------------
 input double RiskPercent        = 2.0;    // % account risk per trade
@@ -39,6 +40,7 @@ CSwingEntry1H         *EntryLayer;
 CSwingPositionManager *PosMgr;
 CBoJWatchdog          *BoJWatch;
 CAIClient             *AIClient;
+CFeatureBuilder       *FeatureBldr;
 
 //-- State -------------------------------------------------------------------
 int      g_currentBias       = DIR_NONE;
@@ -74,9 +76,11 @@ int OnInit()
     PosMgr        = new CSwingPositionManager(RiskPercent, 48.0, 72.0);
     BoJWatch      = new CBoJWatchdog(200.0, 3.0);
     AIClient      = new CAIClient(AI_Host, AI_Port, 500);
+    FeatureBldr   = new CFeatureBuilder();
 
-    if(!TrendAnalyzer.Init()) return INIT_FAILED;
-    if(!EntryLayer.Init())    return INIT_FAILED;
+    if(!TrendAnalyzer.Init())  return INIT_FAILED;
+    if(!EntryLayer.Init())     return INIT_FAILED;
+    if(!FeatureBldr.Init())    return INIT_FAILED;
 
     RiskMgr.InitSession();
     RiskMgr.InitWeek();
@@ -106,6 +110,7 @@ void OnDeinit(const int reason)
 
     if(TrendAnalyzer) { TrendAnalyzer.Deinit(); delete TrendAnalyzer; }
     if(EntryLayer)    { EntryLayer.Deinit();     delete EntryLayer; }
+    if(FeatureBldr)   { FeatureBldr.Deinit();    delete FeatureBldr; }
 
     delete RiskMgr;
     delete CarryFilter;
@@ -283,19 +288,19 @@ void OnTimer()
 
 SAIResponse GetAIScore()
 {
-    // Build minimal feature string for swing model
-    // Phase 3 will expand this to full 200-step sequence
     string direction = (g_currentBias == 1) ? "BUY" : "SELL";
-    double ema200    = TrendAnalyzer.GetEMA200();
-    double rsi4h     = TrendAnalyzer.GetRSI14();
-    double ema50_1h  = EntryLayer.GetEMA50();
-    double rsi1h     = EntryLayer.GetRSI14();
-    double carry     = CarryFilter.GetDifferentialForAI();
+    string features  = FeatureBldr.Build();
 
-    string features = StringFormat(
-        "[%.3f,%.2f,%.3f,%.2f,%.2f]",
-        ema200, rsi4h, ema50_1h, rsi1h, carry
-    );
+    if(features == "")
+    {
+        SAIResponse empty;
+        empty.valid      = false;
+        empty.entryScore = 0;
+        empty.trendScore = 0;
+        empty.newsRisk   = 100;
+        empty.approve    = false;
+        return empty;
+    }
 
     return AIClient.RequestScoreSafe(features, direction);
 }

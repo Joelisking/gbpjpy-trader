@@ -71,6 +71,7 @@
   },
 
   "news_shield": {
+    "boj_alert_file": "config/boj_alert.txt",
     "pre_news_lockdown_minutes": 60,
     "preparation_window_minutes": 30,
     "post_news_entry_start_minutes": 15,
@@ -82,8 +83,10 @@
     "extreme_spread_threshold_pips": 60,
     "boj_keywords": [
       "intervene", "intervention", "excessive move", "one-sided",
-      "smooth", "BoJ buys", "Finance Minister", "MOF",
-      "currency check", "speculative"
+      "smooth", "boj buys", "finance minister", "mof",
+      "currency check", "speculative",
+      "boj policy", "policy rate", "monetary policy", "boj press conference",
+      "bank of japan"
     ],
     "boj_scan_interval_seconds": 60,
     "calendar_poll_interval_minutes": 30

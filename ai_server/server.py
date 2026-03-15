@@ -42,6 +42,7 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
 from ai_server.scorer import AIScorer
+from ai_server.news_shield import NewsShield
 
 scorer = AIScorer()
 
@@ -103,7 +104,7 @@ async def handle_client(reader: asyncio.StreamReader,
 
             log.info(
                 f"[{direction:4s}] entry={entry_score:3d} trend={trend_score:3d} "
-                f"news={news_risk:3d} approve={approve}"
+                f"news={news_risk:3d} approve={approve} phase={scorer._news_shield.phase if scorer._news_shield else 'N/A'}"
             )
 
             writer.write((json.dumps(resp) + "\n").encode())
@@ -134,6 +135,25 @@ async def main_async(host: str, port: int) -> None:
     else:
         log.warning("⚠️  Models not loaded — running in fallback mode (safe defaults)")
         log.warning("    Train models first: uv run python training/train_scalper_model.py")
+
+    # ── News Shield ───────────────────────────────────────────────────────────
+    config_path = ROOT / "config.json"
+    config = {}
+    if config_path.exists():
+        with open(config_path) as f:
+            config = json.load(f)
+
+    # boj_alert_file: path the MQL5 BoJWatchdog reads from.
+    # On the VPS, set this in config.json news_shield.boj_alert_file to the
+    # MT5 data folder path, e.g.:
+    #   C:\Users\<user>\AppData\Roaming\MetaQuotes\Terminal\<hash>\MQL5\Files\boj_alert.txt
+    boj_alert_file = config.get("news_shield", {}).get("boj_alert_file", "config/boj_alert.txt")
+    boj_alert_path = Path(boj_alert_file) if Path(boj_alert_file).is_absolute() else ROOT / boj_alert_file
+
+    shield = NewsShield(config, boj_alert_path)
+    scorer.set_news_shield(shield)
+    await shield.start()
+    log.info("✅ News Shield running — phase=%s", shield.phase)
 
     server = await asyncio.start_server(handle_client, host, port)
     addr   = server.sockets[0].getsockname()

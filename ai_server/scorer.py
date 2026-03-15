@@ -30,6 +30,10 @@ class AIScorer:
         self._scalper_cfg    = {}
         self._swing_cfg      = {}
         self._loaded         = False
+        self._news_shield    = None  # set by server.py after NewsShield starts
+
+    def set_news_shield(self, shield) -> None:
+        self._news_shield = shield
 
     def load(self) -> bool:
         """Load all models. Returns True if at least scalper models loaded."""
@@ -186,11 +190,12 @@ class AIScorer:
 
     def score_news_risk(self) -> int:
         """
-        News risk score based on proximity to next scheduled event.
-        In Phase 3 this will query the live ForexFactory feed.
-        For now returns 0 (no risk) — news_shield.py will manage this directly.
+        News risk score (0-100) from the live ForexFactory feed.
+        Returns 0 if NewsShield is not yet running.
         """
-        return 0
+        if self._news_shield is None:
+            return 0
+        return self._news_shield.news_risk
 
     @property
     def is_loaded(self) -> bool:
