@@ -52,22 +52,37 @@
   "note": "BiLSTM disabled \u2014 overfits due to regime mismatch 2010-2021 vs 2023-2026. XGBoost val_AUC=0.66.",
   "evaluation": {
     "train": {
-      "accuracy": 0.6545,
-      "precision": 0.5291,
-      "recall": 0.5804,
-      "auc": 0.706
+      "auc": 0.9222,
+      "accuracy": 0.8377,
+      "precision": 0.7444,
+      "recall": 0.8738
     },
     "val": {
-      "accuracy": 0.6328,
-      "precision": 0.5031,
-      "recall": 0.5389,
-      "auc": 0.678
+      "auc": 0.9312,
+      "accuracy": 0.8503,
+      "precision": 0.7482,
+      "recall": 0.8747
     },
     "test": {
-      "accuracy": 0.6508,
-      "precision": 0.5145,
-      "recall": 0.4228,
-      "auc": 0.6618
+      "auc": 0.6985,
+      "accuracy": 0.6353,
+      "precision": 0.4977,
+      "recall": 0.6352
     }
+  },
+  "optuna_best_val_auc": 0.6951,
+  "optuna_test_auc": 0.6985,
+  "optuna_trials": 100,
+  "optuna_best_params": {
+    "n_estimators": 835,
+    "max_depth": 8,
+    "learning_rate": 0.01445581716815124,
+    "subsample": 0.7337713767552383,
+    "colsample_bytree": 0.6646977714542922,
+    "colsample_bylevel": 0.7726648252169472,
+    "min_child_weight": 24,
+    "reg_alpha": 0.05843072029366482,
+    "reg_lambda": 0.6204223501502906,
+    "gamma": 0.8997448173355649
   }
 }
