@@ -10,7 +10,8 @@
 //|  This filter only blocks entries when differential is            |
 //|  collapsing rapidly (BoJ intervention risk).                     |
 //+------------------------------------------------------------------+
-#pragma once
+#ifndef SWING_CARRYTRADEFILTER_MQH
+#define SWING_CARRYTRADEFILTER_MQH
 
 struct SCarryData
 {
@@ -120,3 +121,4 @@ public:
         return false;
     }
 };
+#endif // SWING_CARRYTRADEFILTER_MQH

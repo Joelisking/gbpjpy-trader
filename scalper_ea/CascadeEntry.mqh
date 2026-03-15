@@ -10,7 +10,8 @@
 //|  CRITICAL: If Entry 1 hits SL before Entry 2 triggers,          |
 //|  the entire sequence is cancelled. Never add to a loser.         |
 //+------------------------------------------------------------------+
-#pragma once
+#ifndef SCALPER_CASCADEENTRY_MQH
+#define SCALPER_CASCADEENTRY_MQH
 
 // Magic numbers to identify cascade entries
 #define MAGIC_PILOT  10001
@@ -303,3 +304,4 @@ public:
         return count;
     }
 };
+#endif // SCALPER_CASCADEENTRY_MQH

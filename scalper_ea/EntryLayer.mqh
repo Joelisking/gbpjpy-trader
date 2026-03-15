@@ -10,7 +10,8 @@
 //|  6. AI Entry Score >= 65 (checked by caller)                    |
 //|  7. Remaining session risk > 2% (checked by caller)             |
 //+------------------------------------------------------------------+
-#pragma once
+#ifndef SCALPER_ENTRYLAYER_MQH
+#define SCALPER_ENTRYLAYER_MQH
 
 class CEntryLayer
 {
@@ -191,3 +192,4 @@ public:
         return spreadPoints * _Point / m_pipSize;
     }
 };
+#endif // SCALPER_ENTRYLAYER_MQH

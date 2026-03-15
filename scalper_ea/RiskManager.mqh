@@ -2,7 +2,8 @@
 //|  RiskManager.mqh                                                  |
 //|  Lot sizing, session risk cap, hard halt, trade recording        |
 //+------------------------------------------------------------------+
-#pragma once
+#ifndef SCALPER_RISKMANAGER_MQH
+#define SCALPER_RISKMANAGER_MQH
 
 class CRiskManager
 {
@@ -159,3 +160,4 @@ public:
         return MathMax(0, capUSD - m_sessionLoss);
     }
 };
+#endif // SCALPER_RISKMANAGER_MQH

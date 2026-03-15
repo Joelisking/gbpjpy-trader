@@ -9,7 +9,8 @@
 //|                                                                   |
 //|  On detection: signal caller to close all positions immediately  |
 //+------------------------------------------------------------------+
-#pragma once
+#ifndef SWING_BOJWATCHDOG_MQH
+#define SWING_BOJWATCHDOG_MQH
 
 class CBoJWatchdog
 {
@@ -138,3 +139,4 @@ public:
         return 0.0;
     }
 };
+#endif // SWING_BOJWATCHDOG_MQH

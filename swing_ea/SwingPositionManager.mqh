@@ -9,7 +9,8 @@
 //|    - SL: 4H structural swing low/high (45-70 pips)              |
 //|    - Max hold: 48h (72h post-BoE meeting)                       |
 //+------------------------------------------------------------------+
-#pragma once
+#ifndef SWING_SWINGPOSITIONMANAGER_MQH
+#define SWING_SWINGPOSITIONMANAGER_MQH
 
 #define SWING_MAGIC_FULL  20001
 #define SWING_MAGIC_HALF  20002  // after TP1 partial close, half-position gets new ticket
@@ -306,3 +307,4 @@ public:
         return true;
     }
 };
+#endif // SWING_SWINGPOSITIONMANAGER_MQH

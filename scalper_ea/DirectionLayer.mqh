@@ -9,7 +9,8 @@
 //|    4. ATR(14) > 4 pips on 5M                                    |
 //|    5. EUR/JPY EMA stack agrees (handled by CorrelationFilter)    |
 //+------------------------------------------------------------------+
-#pragma once
+#ifndef SCALPER_DIRECTIONLAYER_MQH
+#define SCALPER_DIRECTIONLAYER_MQH
 
 #define DIR_NONE    0
 #define DIR_BULL    1
@@ -264,3 +265,4 @@ public:
         return highs[ArrayMaximum(highs, 0, lookback)];
     }
 };
+#endif // SCALPER_DIRECTIONLAYER_MQH

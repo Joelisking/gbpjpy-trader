@@ -4,7 +4,8 @@
 //|  GBP/JPY and EUR/JPY share 97.8% directional correlation.       |
 //|  If EUR/JPY disagrees, the signal is rejected (~25% of setups). |
 //+------------------------------------------------------------------+
-#pragma once
+#ifndef SCALPER_CORRELATIONFILTER_MQH
+#define SCALPER_CORRELATIONFILTER_MQH
 
 class CCorrelationFilter
 {
@@ -101,3 +102,4 @@ public:
     // Used as AI feature (0.0-3.0 alignment strength)
     double GetAlignmentScore() { return m_alignmentScore; }
 };
+#endif // SCALPER_CORRELATIONFILTER_MQH

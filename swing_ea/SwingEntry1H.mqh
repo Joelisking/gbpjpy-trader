@@ -9,7 +9,8 @@
 //|    4. Volume > 20-bar average                                    |
 //|    5. Spread within limit                                        |
 //+------------------------------------------------------------------+
-#pragma once
+#ifndef SWING_SWINGENTRY1H_MQH
+#define SWING_SWINGENTRY1H_MQH
 
 class CSwingEntry1H
 {
@@ -154,3 +155,4 @@ public:
         return (bid - ema[0]) / PipSize();
     }
 };
+#endif // SWING_SWINGENTRY1H_MQH

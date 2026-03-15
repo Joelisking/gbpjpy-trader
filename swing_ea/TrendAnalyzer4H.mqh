@@ -9,7 +9,8 @@
 //|    4. Weekly EMA stack: 21 > 50                                  |
 //|    5. AI Trend Strength Score >= 70 (checked by caller)          |
 //+------------------------------------------------------------------+
-#pragma once
+#ifndef SWING_TRENDANALYZER4H_MQH
+#define SWING_TRENDANALYZER4H_MQH
 
 class CTrendAnalyzer4H
 {
@@ -249,3 +250,4 @@ public:
         return rsi[0];
     }
 };
+#endif // SWING_TRENDANALYZER4H_MQH

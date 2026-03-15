@@ -9,7 +9,8 @@
 //|  4. Trailing: after breakeven, trail all SLs 12 pips behind      |
 //|  5. TP extension: if +15 pips in 5 min, extend TP to 45 pips    |
 //+------------------------------------------------------------------+
-#pragma once
+#ifndef SCALPER_EXITMANAGER_MQH
+#define SCALPER_EXITMANAGER_MQH
 
 class CExitManager
 {
@@ -200,3 +201,4 @@ public:
         return (int)((TimeCurrent() - m_sequenceOpenTime) / 60);
     }
 };
+#endif // SCALPER_EXITMANAGER_MQH

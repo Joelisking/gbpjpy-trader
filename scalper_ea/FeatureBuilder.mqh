@@ -7,7 +7,8 @@
 //|                                                                   |
 //|  Features match the training data exactly — order matters.       |
 //+------------------------------------------------------------------+
-#pragma once
+#ifndef SCALPER_FEATUREBUILDER_MQH
+#define SCALPER_FEATUREBUILDER_MQH
 
 class CFeatureBuilder
 {
@@ -239,3 +240,4 @@ public:
         return json;
     }
 };
+#endif // SCALPER_FEATUREBUILDER_MQH

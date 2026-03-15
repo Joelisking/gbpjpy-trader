@@ -6,7 +6,8 @@
 //|  Works with both the dummy server (Phase 1) and full AI server   |
 //|  (Phase 3) — same JSON protocol.                                  |
 //+------------------------------------------------------------------+
-#pragma once
+#ifndef SCALPER_AICLIENT_MQH
+#define SCALPER_AICLIENT_MQH
 
 struct SAIResponse
 {
@@ -148,3 +149,4 @@ public:
         return r.valid;
     }
 };
+#endif // SCALPER_AICLIENT_MQH
