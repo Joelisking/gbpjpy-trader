@@ -38,17 +38,16 @@ class AIScorer:
         ok = True
 
         # ── Scalper models ────────────────────────────────────────────
-        try:
-            from tensorflow import keras
-            scalper_path = MODELS_DIR / "scalper_bilstm.keras"
-            if scalper_path.exists():
+        scalper_path = MODELS_DIR / "scalper_bilstm.keras"
+        if scalper_path.exists():
+            try:
+                from tensorflow import keras
                 self._scalper_bilstm = keras.models.load_model(str(scalper_path))
                 print(f"[Scorer] Scalper BiLSTM loaded ({scalper_path.name})")
-            else:
-                print(f"[Scorer] WARNING: {scalper_path.name} not found — using XGBoost only")
-        except Exception as e:
-            print(f"[Scorer] WARNING: Failed to load scalper BiLSTM: {e}")
-            ok = False
+            except Exception as e:
+                print(f"[Scorer] WARNING: Failed to load scalper BiLSTM: {e}")
+        else:
+            print(f"[Scorer] Scalper BiLSTM not found — using XGBoost only")
 
         try:
             xgb_path = MODELS_DIR / "scalper_xgb.json"
@@ -61,19 +60,21 @@ class AIScorer:
             ok = False
 
         # ── Swing models ──────────────────────────────────────────────
-        try:
-            from tensorflow import keras
-            swing_path = MODELS_DIR / "swing_bilstm.keras"
-            if swing_path.exists():
+        swing_path = MODELS_DIR / "swing_bilstm.keras"
+        if swing_path.exists():
+            try:
+                from tensorflow import keras
                 self._swing_bilstm = keras.models.load_model(str(swing_path))
                 print(f"[Scorer] Swing BiLSTM loaded")
-        except Exception as e:
-            print(f"[Scorer] WARNING: Failed to load swing BiLSTM: {e}")
+            except Exception as e:
+                print(f"[Scorer] WARNING: Failed to load swing BiLSTM: {e}")
+        else:
+            print(f"[Scorer] Swing BiLSTM not found — using XGBoost only")
 
         try:
             xgb_path = MODELS_DIR / "swing_xgb.json"
             if xgb_path.exists():
-                self._swing_xgb = xgb.XGBRegressor()
+                self._swing_xgb = xgb.XGBClassifier()
                 self._swing_xgb.load_model(str(xgb_path))
                 print(f"[Scorer] Swing XGBoost loaded")
         except Exception as e:

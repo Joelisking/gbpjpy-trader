@@ -146,8 +146,10 @@ async def main_async(host: str, port: int) -> None:
         log.info("Shutting down...")
         server.close()
 
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, _shutdown)
+    # add_signal_handler is not supported on Windows
+    if sys.platform != "win32":
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(sig, _shutdown)
 
     async with server:
         await server.serve_forever()
