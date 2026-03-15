@@ -15,6 +15,10 @@ data/*
 !data/.gitkeep
 !data/scaler_*.pkl
 
+# BiLSTM model files — trained locally, not committed (too large, TF version-sensitive)
+models/*.keras
+models/*_history.json
+
 # Model backups — v1/v2 are labelled backup files, don't commit
 models/*_v1.*
 models/*_v2.*
