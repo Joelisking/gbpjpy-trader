@@ -75,13 +75,13 @@ int OnInit()
     BoJWatch      = new CBoJWatchdog(200.0, 3.0);
     AIClient      = new CAIClient(AI_Host, AI_Port, 500);
 
-    if(!TrendAnalyzer->Init()) return INIT_FAILED;
-    if(!EntryLayer->Init())    return INIT_FAILED;
+    if(!TrendAnalyzer.Init()) return INIT_FAILED;
+    if(!EntryLayer.Init())    return INIT_FAILED;
 
-    RiskMgr->InitSession();
-    RiskMgr->InitWeek();
+    RiskMgr.InitSession();
+    RiskMgr.InitWeek();
 
-    if(!AIClient->IsServerAlive())
+    if(!AIClient.IsServerAlive())
         Print("WARNING: AI server not responding on ", AI_Host, ":", AI_Port,
               " — start server_test.py or ai_server/server.py");
     else
@@ -98,14 +98,14 @@ void OnDeinit(const int reason)
 {
     EventKillTimer();
 
-    if(PosMgr != NULL && PosMgr->IsPositionOpen())
+    if(PosMgr != NULL && PosMgr.IsPositionOpen())
     {
         Print("EA removed — closing swing position");
-        PosMgr->CloseAll();
+        PosMgr.CloseAll();
     }
 
-    if(TrendAnalyzer) { TrendAnalyzer->Deinit(); delete TrendAnalyzer; }
-    if(EntryLayer)    { EntryLayer->Deinit();     delete EntryLayer; }
+    if(TrendAnalyzer) { TrendAnalyzer.Deinit(); delete TrendAnalyzer; }
+    if(EntryLayer)    { EntryLayer.Deinit();     delete EntryLayer; }
 
     delete RiskMgr;
     delete CarryFilter;
@@ -119,45 +119,45 @@ void OnTick()
 {
     //-- Safety gates ---------------------------------------------------
     if(g_newsShieldActive)            return;
-    if(RiskMgr->IsHaltTriggered())   return;
-    if(RiskMgr->IsWeeklyCapReached()) return;
+    if(RiskMgr.IsHaltTriggered())   return;
+    if(RiskMgr.IsWeeklyCapReached()) return;
 
     //-- BoJ intervention watchdog -------------------------------------
-    if(BoJWatchdogEnabled && BoJWatch->IsInterventionDetected())
+    if(BoJWatchdogEnabled && BoJWatch.IsInterventionDetected())
     {
-        if(PosMgr->IsPositionOpen())
+        if(PosMgr.IsPositionOpen())
         {
             Print("[SwingEA] BoJ intervention detected — closing position");
-            PosMgr->CloseAll();
+            PosMgr.CloseAll();
         }
         return;
     }
 
     //-- Manage existing position on each new H1 bar close ------------
-    if(HasNewH1Close() && PosMgr->IsPositionOpen())
+    if(HasNewH1Close() && PosMgr.IsPositionOpen())
     {
         // Check mandatory exits on 4H candle closes
         bool structBreak = false;
         bool emaBreach   = false;
         if(HasNewH4Close())
         {
-            int dir = PosMgr->GetDirection();
+            int dir = PosMgr.GetDirection();
             structBreak = (dir == 1)
-                ? TrendAnalyzer->IsStructuralBreakdownLong(g_lastStructuralHL)
-                : TrendAnalyzer->IsStructuralBreakdownShort(g_lastStructuralLH);
-            emaBreach = TrendAnalyzer->Is200EMABreached(dir);
+                ? TrendAnalyzer.IsStructuralBreakdownLong(g_lastStructuralHL)
+                : TrendAnalyzer.IsStructuralBreakdownShort(g_lastStructuralLH);
+            emaBreach = TrendAnalyzer.Is200EMABreached(dir);
         }
 
         if(structBreak)
         {
             Print("[SwingEA] 4H structural breakdown — closing position");
-            PosMgr->CloseAll();
+            PosMgr.CloseAll();
             return;
         }
         if(emaBreach)
         {
             Print("[SwingEA] 4H 200 EMA breached — closing position");
-            PosMgr->CloseAll();
+            PosMgr.CloseAll();
             return;
         }
 
@@ -165,20 +165,20 @@ void OnTick()
         SAIResponse ai = GetAIScore();
         bool aiCollapse = ai.valid && ai.trendScore < AICollapseScore;
 
-        bool closed = PosMgr->ManagePosition(BoJWatch->IsFlagged(), aiCollapse);
+        bool closed = PosMgr.ManagePosition(BoJWatch.IsFlagged(), aiCollapse);
         if(!closed)
         {
             // Trail SL to new structural swing low/high
             double pip = 10.0 * _Point;
-            if(PosMgr->GetDirection() == 1)
+            if(PosMgr.GetDirection() == 1)
             {
-                double newHL = TrendAnalyzer->GetStructuralSwingLow(pip, 40);
-                if(newHL > 0) PosMgr->TrailSLToSwingPoint(newHL);
+                double newHL = TrendAnalyzer.GetStructuralSwingLow(pip, 40);
+                if(newHL > 0) PosMgr.TrailSLToSwingPoint(newHL);
             }
             else
             {
-                double newLH = TrendAnalyzer->GetStructuralSwingHigh(pip, 40);
-                if(newLH > 0) PosMgr->TrailSLToSwingPoint(newLH);
+                double newLH = TrendAnalyzer.GetStructuralSwingHigh(pip, 40);
+                if(newLH > 0) PosMgr.TrailSLToSwingPoint(newLH);
             }
         }
         return;
@@ -187,31 +187,31 @@ void OnTick()
     //-- Update 4H direction on each 4H candle close ------------------
     if(HasNewH4Close())
     {
-        g_currentBias = TrendAnalyzer->Get4HBias();
+        g_currentBias = TrendAnalyzer.Get4HBias();
         PrintFormat("[SwingEA] 4H bias updated: %s",
                     g_currentBias == DIR_BULL ? "BULL" :
                     g_currentBias == DIR_BEAR ? "BEAR" : "NONE");
 
         // Cache structural reference levels for breakdown detection
         double pip = 10.0 * _Point;
-        g_lastStructuralHL = TrendAnalyzer->GetStructuralSwingLow(pip, 40);
-        g_lastStructuralLH = TrendAnalyzer->GetStructuralSwingHigh(pip, 40);
+        g_lastStructuralHL = TrendAnalyzer.GetStructuralSwingLow(pip, 40);
+        g_lastStructuralLH = TrendAnalyzer.GetStructuralSwingHigh(pip, 40);
     }
 
     if(g_currentBias == DIR_NONE) return;
-    if(PosMgr->IsPositionOpen())  return;  // one trade at a time
+    if(PosMgr.IsPositionOpen())  return;  // one trade at a time
 
     //-- Entry conditions — checked on new H1 bar close only ----------
     if(!HasNewH1Close()) return;
 
     //-- Carry trade filter -------------------------------------------
-    if(!CarryFilter->IsCarryFavorable(g_currentBias)) return;
+    if(!CarryFilter.IsCarryFavorable(g_currentBias)) return;
 
     //-- 1H entry signal ----------------------------------------------
-    if(!EntryLayer->HasEntrySignal(g_currentBias)) return;
+    if(!EntryLayer.HasEntrySignal(g_currentBias)) return;
 
     //-- Session cap ---------------------------------------------------
-    if(RiskMgr->IsSessionCapReached()) return;
+    if(RiskMgr.IsSessionCapReached()) return;
 
     //-- AI trend score gate ------------------------------------------
     SAIResponse ai = GetAIScore();
@@ -241,8 +241,8 @@ void OnTick()
     //-- Compute SL price and open position ---------------------------
     double pip   = 10.0 * _Point;
     double slPrc = (g_currentBias == 1)
-        ? TrendAnalyzer->GetStructuralSwingLow(pip, 40)
-        : TrendAnalyzer->GetStructuralSwingHigh(pip, 40);
+        ? TrendAnalyzer.GetStructuralSwingLow(pip, 40)
+        : TrendAnalyzer.GetStructuralSwingHigh(pip, 40);
 
     if(slPrc <= 0)
     {
@@ -250,12 +250,12 @@ void OnTick()
         return;
     }
 
-    if(PosMgr->OpenPosition(g_currentBias, slPrc))
+    if(PosMgr.OpenPosition(g_currentBias, slPrc))
     {
         PrintFormat("[SwingEA] ENTRY | Dir=%s | TrendScore=%d | NewsRisk=%d | Carry=%.2f",
                     g_currentBias == 1 ? "BUY" : "SELL",
                     ai.trendScore, ai.newsRisk,
-                    CarryFilter->GetDifferentialForAI());
+                    CarryFilter.GetDifferentialForAI());
     }
 }
 
@@ -269,12 +269,12 @@ void OnTimer()
     if(dt.hour == 0 && dt.min < 2)
     {
         Print("[SwingEA] New day — resetting session");
-        RiskMgr->InitSession();
+        RiskMgr.InitSession();
     }
 
     // Weekly reset (Monday 00:00)
     if(dt.day_of_week == 1 && dt.hour == 0 && dt.min < 2)
-        RiskMgr->InitWeek();
+        RiskMgr.InitWeek();
 }
 
 //+------------------------------------------------------------------+
@@ -286,18 +286,18 @@ SAIResponse GetAIScore()
     // Build minimal feature string for swing model
     // Phase 3 will expand this to full 200-step sequence
     string direction = (g_currentBias == 1) ? "BUY" : "SELL";
-    double ema200    = TrendAnalyzer->GetEMA200();
-    double rsi4h     = TrendAnalyzer->GetRSI14();
-    double ema50_1h  = EntryLayer->GetEMA50();
-    double rsi1h     = EntryLayer->GetRSI14();
-    double carry     = CarryFilter->GetDifferentialForAI();
+    double ema200    = TrendAnalyzer.GetEMA200();
+    double rsi4h     = TrendAnalyzer.GetRSI14();
+    double ema50_1h  = EntryLayer.GetEMA50();
+    double rsi1h     = EntryLayer.GetRSI14();
+    double carry     = CarryFilter.GetDifferentialForAI();
 
     string features = StringFormat(
         "[%.3f,%.2f,%.3f,%.2f,%.2f]",
         ema200, rsi4h, ema50_1h, rsi1h, carry
     );
 
-    return AIClient->RequestScoreSafe(features, direction);
+    return AIClient.RequestScoreSafe(features, direction);
 }
 
 bool HasNewH1Close()

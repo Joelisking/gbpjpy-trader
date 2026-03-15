@@ -81,16 +81,16 @@ int OnInit()
     FeatureBuilder = new CFeatureBuilder();
 
     // Initialise all indicator handles
-    if(!DirLayer->Init())       return INIT_FAILED;
-    if(!CorrFilter->Init())     return INIT_FAILED;
-    if(!EntryLayer->Init())     return INIT_FAILED;
-    if(!FeatureBuilder->Init()) return INIT_FAILED;
+    if(!DirLayer.Init())       return INIT_FAILED;
+    if(!CorrFilter.Init())     return INIT_FAILED;
+    if(!EntryLayer.Init())     return INIT_FAILED;
+    if(!FeatureBuilder.Init()) return INIT_FAILED;
 
-    RiskMgr->InitSession();
-    RiskMgr->InitWeek();
+    RiskMgr.InitSession();
+    RiskMgr.InitWeek();
 
     // Check AI server is reachable (warn if not, don't fail — server_test.py may not be running yet)
-    if(!AIClient->IsServerAlive())
+    if(!AIClient.IsServerAlive())
         Print("WARNING: AI server not responding on ", AI_Host, ":", AI_Port,
               " — start server_test.py or ai_server/server.py");
     else
@@ -108,16 +108,16 @@ void OnDeinit(const int reason)
     EventKillTimer();
 
     // Close all open cascade positions on removal
-    if(Cascade != NULL && Cascade->IsSequenceActive())
+    if(Cascade != NULL && Cascade.IsSequenceActive())
     {
         Print("EA removed — closing all cascade positions");
-        Cascade->CloseAll();
+        Cascade.CloseAll();
     }
 
-    if(DirLayer)       { DirLayer->Deinit();       delete DirLayer; }
-    if(CorrFilter)     { CorrFilter->Deinit();     delete CorrFilter; }
-    if(EntryLayer)     { EntryLayer->Deinit();     delete EntryLayer; }
-    if(FeatureBuilder) { FeatureBuilder->Deinit(); delete FeatureBuilder; }
+    if(DirLayer)       { DirLayer.Deinit();       delete DirLayer; }
+    if(CorrFilter)     { CorrFilter.Deinit();     delete CorrFilter; }
+    if(EntryLayer)     { EntryLayer.Deinit();     delete EntryLayer; }
+    if(FeatureBuilder) { FeatureBuilder.Deinit(); delete FeatureBuilder; }
 
     delete RiskMgr;
     delete Cascade;
@@ -130,34 +130,34 @@ void OnTick()
 {
     //-- Safety gates: check every tick ---------------------------------
     if(g_newsShieldActive)             return;
-    if(RiskMgr->IsHaltTriggered())    return;
-    if(RiskMgr->IsWeeklyCapReached()) return;
+    if(RiskMgr.IsHaltTriggered())    return;
+    if(RiskMgr.IsWeeklyCapReached()) return;
     if(IsLondonSpikeWindow())         return;
 
     //-- Manage open cascade positions (exit logic) --------------------
-    if(Cascade->IsSequenceActive())
+    if(Cascade.IsSequenceActive())
     {
         // Check for direction flip on 5M
-        if(HasNewM5Close() && DirLayer->HasDirectionFlipped(Cascade->GetDirection()))
+        if(HasNewM5Close() && DirLayer.HasDirectionFlipped(Cascade.GetDirection()))
         {
-            ExitMgr->OnDirectionFlip(Cascade);
+            ExitMgr.OnDirectionFlip(Cascade);
             OnSequenceClosed();
             return;
         }
 
-        bool allClosed = ExitMgr->ManageOpenTrades(Cascade->GetDirection(), Cascade);
+        bool allClosed = ExitMgr.ManageOpenTrades(Cascade.GetDirection(), Cascade);
         if(allClosed) OnSequenceClosed();
 
         // Allow cascade to build additional entries
         SAIResponse ai = GetAIScore();
-        Cascade->ManageCascade(ai.entryScore, CorrFilter->IsAgreeing(Cascade->GetDirection()));
+        Cascade.ManageCascade(ai.entryScore, CorrFilter.IsAgreeing(Cascade.GetDirection()));
         return;
     }
 
     //-- Update 5M direction at each 5M candle close -------------------
     if(HasNewM5Close())
     {
-        g_currentBias = DirLayer->Get5MBias();
+        g_currentBias = DirLayer.Get5MBias();
         PrintFormat("[ScalperEA] 5M bias updated: %s",
                     g_currentBias == DIR_BULL ? "BULL" :
                     g_currentBias == DIR_BEAR ? "BEAR" : "NONE");
@@ -166,13 +166,13 @@ void OnTick()
     if(g_currentBias == DIR_NONE) return;
 
     //-- EUR/JPY correlation filter ------------------------------------
-    if(!CorrFilter->IsAgreeing(g_currentBias)) return;
+    if(!CorrFilter.IsAgreeing(g_currentBias)) return;
 
     //-- 1M entry signal -----------------------------------------------
-    if(!EntryLayer->Has1MSignal(g_currentBias)) return;
+    if(!EntryLayer.Has1MSignal(g_currentBias)) return;
 
     //-- Session cap check --------------------------------------------
-    if(RiskMgr->IsSessionCapReached()) return;
+    if(RiskMgr.IsSessionCapReached()) return;
 
     //-- AI score gate ------------------------------------------------
     SAIResponse ai = GetAIScore();
@@ -200,10 +200,10 @@ void OnTick()
     }
 
     //-- Execute pilot entry -------------------------------------------
-    if(Cascade->ExecutePilot(g_currentBias))
+    if(Cascade.ExecutePilot(g_currentBias))
     {
         g_sessionTradeCount++;
-        ExitMgr->OnSequenceOpened(SymbolInfoDouble(_Symbol,
+        ExitMgr.OnSequenceOpened(SymbolInfoDouble(_Symbol,
             g_currentBias == 1 ? SYMBOL_ASK : SYMBOL_BID));
 
         PrintFormat("[ScalperEA] ENTRY #%d | Dir=%s | AI=%d | Trend=%d | News=%d",
@@ -222,13 +222,13 @@ void OnTimer()
     if(dt.hour == 0 && dt.min < 2)
     {
         Print("[ScalperEA] New day — resetting session");
-        RiskMgr->InitSession();
+        RiskMgr.InitSession();
         g_sessionTradeCount = 0;
     }
 
     // Weekly reset (Monday 00:00)
     if(dt.day_of_week == 1 && dt.hour == 0 && dt.min < 2)
-        RiskMgr->InitWeek();
+        RiskMgr.InitWeek();
 }
 
 //+------------------------------------------------------------------+
@@ -237,9 +237,9 @@ void OnTimer()
 
 SAIResponse GetAIScore()
 {
-    string features = FeatureBuilder->Build();
+    string features = FeatureBuilder.Build();
     string direction = (g_currentBias == 1) ? "BUY" : "SELL";
-    return AIClient->RequestScoreSafe(features, direction);
+    return AIClient.RequestScoreSafe(features, direction);
 }
 
 bool HasNewM5Close()
