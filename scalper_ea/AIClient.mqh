@@ -15,8 +15,7 @@ struct SAIResponse
     int  trendScore;   // 0-100
     int  newsRisk;     // 0-100
     bool approve;      // entry_score >= 65 AND news_risk < 70
-    string msg;
-    bool   valid;      // false = server unreachable / parse error
+    bool valid;        // false = server unreachable / parse error
 };
 
 class CAIClient

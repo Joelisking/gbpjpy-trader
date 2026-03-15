@@ -140,12 +140,12 @@ void OnTick()
         // Check for direction flip on 5M
         if(HasNewM5Close() && DirLayer->HasDirectionFlipped(Cascade->GetDirection()))
         {
-            ExitMgr->OnDirectionFlip(*Cascade);
+            ExitMgr->OnDirectionFlip(Cascade);
             OnSequenceClosed();
             return;
         }
 
-        bool allClosed = ExitMgr->ManageOpenTrades(Cascade->GetDirection(), *Cascade);
+        bool allClosed = ExitMgr->ManageOpenTrades(Cascade->GetDirection(), Cascade);
         if(allClosed) OnSequenceClosed();
 
         // Allow cascade to build additional entries

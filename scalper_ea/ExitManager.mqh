@@ -136,7 +136,7 @@ public:
 
     // Call on every tick while positions are open
     // Returns true if all positions were closed (caller should reset state)
-    bool ManageOpenTrades(int direction, CCascadeEntry &cascade)
+    bool ManageOpenTrades(int direction, CCascadeEntry *cascade)
     {
         if(cascade.CountOpenPositions() == 0) return false;
 
@@ -187,7 +187,7 @@ public:
     }
 
     // Called by main EA when 5M direction flips
-    void OnDirectionFlip(CCascadeEntry &cascade)
+    void OnDirectionFlip(CCascadeEntry *cascade)
     {
         Print("[ExitMgr] DIRECTION FLIP — closing all positions immediately");
         cascade.CloseAll();
