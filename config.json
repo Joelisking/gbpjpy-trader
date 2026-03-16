@@ -71,7 +71,7 @@
   },
 
   "news_shield": {
-    "boj_alert_file": "C:\\Users\\Administrator\\AppData\\Roaming\\MetaQuotes\\Terminal\\TERMINAL_HASH\\MQL5\\Files\\boj_alert.txt",
+    "boj_alert_file": "C:\\Users\\Administrator\\AppData\\Roaming\\MetaQuotes\\Terminal\\1A3A0798ADA52B285B21B07A89A22A05\\MQL5\\Files\\boj_alert.txt",
     "pre_news_lockdown_minutes": 60,
     "preparation_window_minutes": 30,
     "post_news_entry_start_minutes": 15,
