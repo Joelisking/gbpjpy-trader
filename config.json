@@ -71,7 +71,7 @@
   },
 
   "news_shield": {
-    "boj_alert_file": "config/boj_alert.txt",
+    "boj_alert_file": "C:\\Users\\Administrator\\AppData\\Roaming\\MetaQuotes\\Terminal\\TERMINAL_HASH\\MQL5\\Files\\boj_alert.txt",
     "pre_news_lockdown_minutes": 60,
     "preparation_window_minutes": 30,
     "post_news_entry_start_minutes": 15,
@@ -97,10 +97,10 @@
     "trend_score_threshold": 70,
     "news_risk_pause_threshold": 70,
     "news_risk_half_size_threshold": 40,
-    "bilstm_weight": 0.60,
-    "xgboost_weight": 0.40,
-    "sequence_length": 200,
-    "n_features": 30,
+    "bilstm_weight": 0.0,
+    "xgboost_weight": 1.0,
+    "sequence_length": 120,
+    "n_features": 40,
     "scalper_accuracy_target": 0.65,
     "swing_accuracy_target": 0.62,
     "retrain_accuracy_drop_pct": 5,
