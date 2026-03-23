@@ -66,19 +66,29 @@ private:
         return (e21 < e50 && e50 < e200 && price < e21);
     }
 
+    // MT5 iMACD buffers: 0 = MACD line, 1 = Signal line.
+    // There is no buffer 2 — histogram must be computed as MACD - Signal.
+    bool GetMACDHistogram(double &hist)
+    {
+        double macd[1], signal[1];
+        if(CopyBuffer(m_hMACD, 0, 0, 1, macd)   != 1) return false;
+        if(CopyBuffer(m_hMACD, 1, 0, 1, signal) != 1) return false;
+        hist = macd[0] - signal[0];
+        return true;
+    }
+
     bool IsMACDBullish()
     {
-        double hist[1];
-        // Buffer 2 = histogram
-        if(CopyBuffer(m_hMACD, 2, 0, 1, hist) != 1) return false;
-        return hist[0] > 0;
+        double hist;
+        if(!GetMACDHistogram(hist)) return false;
+        return hist > 0;
     }
 
     bool IsMACDBearish()
     {
-        double hist[1];
-        if(CopyBuffer(m_hMACD, 2, 0, 1, hist) != 1) return false;
-        return hist[0] < 0;
+        double hist;
+        if(!GetMACDHistogram(hist)) return false;
+        return hist < 0;
     }
 
     bool IsATRSufficient()
@@ -243,14 +253,14 @@ public:
         bool atrDataOk  = (CopyBuffer(m_hATR,  0, 0, 1, atr)  == 1);
         double atrPips  = atrDataOk ? atr[0] / m_pipSize : 0;
 
-        double hist[1];
-        bool macdDataOk = (CopyBuffer(m_hMACD, 2, 0, 1, hist) == 1);
+        double histVal    = 0;
+        bool macdDataOk   = GetMACDHistogram(histVal);
 
         bool atrPass      = atrDataOk  && (atrPips >= m_atrMinPips);
         bool emaStackBull = emaDataOk  && (e21 > e50 && e50 > e200 && price > e21);
         bool emaStackBear = emaDataOk  && (e21 < e50 && e50 < e200 && price < e21);
-        bool macdBull     = macdDataOk && hist[0] > 0;
-        bool macdBear     = macdDataOk && hist[0] < 0;
+        bool macdBull     = macdDataOk && histVal > 0;
+        bool macdBear     = macdDataOk && histVal < 0;
         bool structBull   = IsStructureBullish();
         bool structBear   = IsStructureBearish();
 
@@ -263,7 +273,7 @@ public:
             emaDataOk ? e50  : 0,
             emaDataOk ? e200 : 0);
         PrintFormat("[5M-Diag] MACD hist=%.5f [BULL=%s BEAR=%s]",
-            macdDataOk ? hist[0] : 0,
+            macdDataOk ? histVal : 0,
             macdBull ? "Y" : "N", macdBear ? "Y" : "N");
         PrintFormat("[5M-Diag] Structure: BULL=%s BEAR=%s",
             structBull ? "Y" : "N", structBear ? "Y" : "N");
