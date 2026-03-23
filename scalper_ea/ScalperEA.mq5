@@ -17,6 +17,7 @@
 #include "CascadeEntry.mqh"
 #include "ExitManager.mqh"
 #include "AIClient.mqh"
+#include "FileAIClient.mqh"
 #include "FeatureBuilder.mqh"
 #include "TelegramMQL5.mqh"
 
@@ -45,7 +46,8 @@ CCorrelationFilter *CorrFilter;
 CEntryLayer        *EntryLayer;
 CCascadeEntry      *Cascade;
 CExitManager       *ExitMgr;
-CAIClient          *AIClient;
+CAIClient          *AIClient;     // kept for socket fallback
+CFileAIClient      *FileAIClient;
 CFeatureBuilder    *FeatureBuilder;
 CTelegramMQL5      *Telegram;
 
@@ -82,6 +84,7 @@ int OnInit()
     Cascade        = new CCascadeEntry(SLPipsMin, SLPipsMax, TPPips);
     ExitMgr        = new CExitManager(12.0, 12.0, 15.0, MaxHoldMinutes);
     AIClient       = new CAIClient(AI_Host, AI_Port, 500);
+    FileAIClient   = new CFileAIClient(500);
     FeatureBuilder = new CFeatureBuilder();
     Telegram       = new CTelegramMQL5();
     Telegram.Init(TG_Token, TG_ChatId);
@@ -95,15 +98,14 @@ int OnInit()
     RiskMgr.InitSession();
     RiskMgr.InitWeek();
 
-    // Check AI server is reachable (warn if not, don't fail)
-    if(!AIClient.IsServerAlive())
+    // Check AI server via file IPC (sockets disabled on Deriv MT5)
+    if(!FileAIClient.IsServerAlive())
     {
-        Print("WARNING: AI server not responding on ", AI_Host, ":", AI_Port,
-              " — start: uv run python ai_server/server.py");
+        Print("WARNING: AI server not responding via file IPC — start: uv run python ai_server/server.py");
         Telegram.SendAIServerDown();
     }
     else
-        Print("AI server connected on ", AI_Host, ":", AI_Port);
+        Print("AI server connected (file IPC)");
 
     // Warn if EURJPY not in Market Watch (CorrelationFilter will silently block all entries)
     if(SymbolInfoDouble("EURJPY", SYMBOL_BID) == 0)
@@ -137,6 +139,7 @@ void OnDeinit(const int reason)
     delete Cascade;
     delete ExitMgr;
     delete AIClient;
+    delete FileAIClient;
     delete Telegram;
 }
 
@@ -274,7 +277,7 @@ void OnTimer()
     {
         string biasStr = (g_currentBias == DIR_BULL) ? "BULL"
                        : (g_currentBias == DIR_BEAR) ? "BEAR" : "NONE";
-        bool   aiUp    = AIClient.IsServerAlive();
+        bool   aiUp    = FileAIClient.IsServerAlive();
         double spread  = EntryLayer.GetSpreadPips();
         bool   corrOk  = CorrFilter.IsAgreeing(g_currentBias);
 
@@ -292,7 +295,7 @@ void OnTimer()
     {
         string biasStr = (g_currentBias == DIR_BULL) ? "BULL"
                        : (g_currentBias == DIR_BEAR) ? "BEAR" : "NONE";
-        Telegram.SendHeartbeat(biasStr, AIClient.IsServerAlive(),
+        Telegram.SendHeartbeat(biasStr, FileAIClient.IsServerAlive(),
                                EntryLayer.GetSpreadPips(),
                                g_sessionTradeCount,
                                RiskMgr.IsHaltTriggered());
@@ -305,9 +308,9 @@ void OnTimer()
 
 SAIResponse GetAIScore()
 {
-    string features = FeatureBuilder.Build();
+    string features  = FeatureBuilder.Build();
     string direction = (g_currentBias == 1) ? "BUY" : "SELL";
-    return AIClient.RequestScoreSafe(features, direction);
+    return FileAIClient.RequestScoreSafe(features, direction);
 }
 
 bool HasNewM5Close()

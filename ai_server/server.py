@@ -137,6 +137,52 @@ async def handle_client(reader: asyncio.StreamReader,
 
 # ── Server lifecycle ─────────────────────────────────────────────────────────
 
+async def _file_ipc_loop(files_dir: Path) -> None:
+    """
+    Poll for ai_request.json written by the MQL5 EA, score it,
+    write ai_response.json back.  Runs alongside the TCP server so
+    both transports are available simultaneously.
+    """
+    request_file  = files_dir / "ai_request.json"
+    response_file = files_dir / "ai_response.json"
+    log.info(f"File IPC watching: {files_dir}")
+
+    while True:
+        try:
+            if request_file.exists():
+                raw = request_file.read_text(encoding="utf-8").strip()
+                request_file.unlink(missing_ok=True)
+
+                req       = json.loads(raw)
+                features  = req.get("features",  "[]")
+                direction = req.get("direction", "BUY")
+
+                entry_score = scorer.score_entry(features)
+                trend_score = scorer.score_trend(features)
+                news_risk   = scorer.score_news_risk()
+
+                if entry_score < 0:
+                    entry_score = 55
+                    trend_score = 55
+
+                approve = entry_score >= 65 and news_risk < 70
+                resp = {
+                    "entry_score": entry_score,
+                    "trend_score": trend_score,
+                    "news_risk":   news_risk,
+                    "approve":     approve,
+                }
+                response_file.write_text(json.dumps(resp), encoding="utf-8")
+                log.info(
+                    f"[File/{direction}] entry={entry_score} trend={trend_score} "
+                    f"news={news_risk} approve={approve}"
+                )
+        except Exception as e:
+            log.error(f"File IPC error: {e}")
+
+        await asyncio.sleep(0.05)   # poll every 50 ms
+
+
 async def _hourly_heartbeat() -> None:
     """Send a Telegram heartbeat every hour so we know the server is alive."""
     while True:
@@ -220,8 +266,22 @@ async def main_async(host: str, port: int) -> None:
         for sig in (signal.SIGINT, signal.SIGTERM):
             loop.add_signal_handler(sig, _shutdown)
 
+    # ── File IPC (for brokers that disable socket API, e.g. Deriv MT5) ──────────
+    boj_path   = config.get("news_shield", {}).get("boj_alert_file", "")
+    files_dir  = Path(boj_path).parent if boj_path else None
+    if files_dir and files_dir.exists():
+        log.info(f"File IPC enabled — watching {files_dir}")
+    else:
+        log.warning(
+            "File IPC: MT5 Files directory not found. "
+            "Set news_shield.boj_alert_file in config.json to the full path of boj_alert.txt."
+        )
+        files_dir = None
+
     async with server:
         asyncio.ensure_future(_hourly_heartbeat())
+        if files_dir:
+            asyncio.ensure_future(_file_ipc_loop(files_dir))
         await server.serve_forever()
 
 
