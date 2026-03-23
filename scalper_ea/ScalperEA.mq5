@@ -56,6 +56,7 @@ int      g_currentBias        = DIR_NONE;
 datetime g_lastM5Close        = 0;
 bool     g_newsShieldActive   = false;
 bool     g_aiServerWasDown    = false;
+bool     g_aiLastKnownUp      = false;  // updated by real score requests, avoids polling in heartbeat
 int      g_sessionTradeCount  = 0;
 int      g_timerCount         = 0;   // increments every 60s in OnTimer
 
@@ -98,14 +99,7 @@ int OnInit()
     RiskMgr.InitSession();
     RiskMgr.InitWeek();
 
-    // Check AI server via file IPC (sockets disabled on Deriv MT5)
-    if(!FileAIClient.IsServerAlive())
-    {
-        Print("WARNING: AI server not responding via file IPC — start: uv run python ai_server/server.py");
-        Telegram.SendAIServerDown();
-    }
-    else
-        Print("AI server connected (file IPC)");
+    Print("AI client ready (file IPC). Server status will show on first entry signal.");
 
     // Warn if EURJPY not in Market Watch (CorrelationFilter will silently block all entries)
     if(SymbolInfoDouble("EURJPY", SYMBOL_BID) == 0)
@@ -203,6 +197,7 @@ void OnTick()
     SAIResponse ai = GetAIScore();
     if(!ai.valid)
     {
+        g_aiLastKnownUp = false;
         if(!g_aiServerWasDown)
         {
             Print("[ScalperEA] AI server down — no new entries (safe mode)");
@@ -211,6 +206,7 @@ void OnTick()
         }
         return;
     }
+    g_aiLastKnownUp = true;
     if(g_aiServerWasDown)
     {
         Print("[ScalperEA] AI server reconnected");
@@ -277,14 +273,13 @@ void OnTimer()
     {
         string biasStr = (g_currentBias == DIR_BULL) ? "BULL"
                        : (g_currentBias == DIR_BEAR) ? "BEAR" : "NONE";
-        bool   aiUp    = FileAIClient.IsServerAlive();
         double spread  = EntryLayer.GetSpreadPips();
         bool   corrOk  = CorrFilter.IsAgreeing(g_currentBias);
 
         PrintFormat("[Heartbeat] %02d:%02d UTC | Bias=%s | EURJPY=%s | AI=%s | Spread=%.1f pips | SessionTrades=%d | Halt=%s",
             dt.hour, dt.min, biasStr,
-            corrOk  ? "agree" : "NO",
-            aiUp    ? "UP"    : "DOWN",
+            corrOk           ? "agree" : "NO",
+            g_aiLastKnownUp  ? "UP"    : "DOWN",
             spread,
             g_sessionTradeCount,
             RiskMgr.IsHaltTriggered() ? "YES" : "no");
@@ -295,7 +290,7 @@ void OnTimer()
     {
         string biasStr = (g_currentBias == DIR_BULL) ? "BULL"
                        : (g_currentBias == DIR_BEAR) ? "BEAR" : "NONE";
-        Telegram.SendHeartbeat(biasStr, FileAIClient.IsServerAlive(),
+        Telegram.SendHeartbeat(biasStr, g_aiLastKnownUp,
                                EntryLayer.GetSpreadPips(),
                                g_sessionTradeCount,
                                RiskMgr.IsHaltTriggered());
