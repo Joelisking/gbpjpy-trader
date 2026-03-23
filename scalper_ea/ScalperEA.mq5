@@ -18,6 +18,7 @@
 #include "ExitManager.mqh"
 #include "AIClient.mqh"
 #include "FeatureBuilder.mqh"
+#include "TelegramMQL5.mqh"
 
 //-- Inputs ------------------------------------------------------------------
 input double RiskPercent       = 1.5;    // % account risk per trade
@@ -34,24 +35,27 @@ input double SLPipsMax         = 18.0;
 input double TPPips            = 30.0;
 input int    MaxHoldMinutes    = 20;
 input bool   NewsShieldEnabled = true;
+input string TG_Token          = "PASTE_TOKEN_HERE";  // Telegram bot token
+input string TG_ChatId         = "PASTE_CHAT_ID_HERE"; // Telegram chat ID
 
 //-- Objects -----------------------------------------------------------------
-CRiskManager      *RiskMgr;
-CDirectionLayer   *DirLayer;
+CRiskManager       *RiskMgr;
+CDirectionLayer    *DirLayer;
 CCorrelationFilter *CorrFilter;
-CEntryLayer       *EntryLayer;
-CCascadeEntry     *Cascade;
-CExitManager      *ExitMgr;
-CAIClient         *AIClient;
-CFeatureBuilder   *FeatureBuilder;
+CEntryLayer        *EntryLayer;
+CCascadeEntry      *Cascade;
+CExitManager       *ExitMgr;
+CAIClient          *AIClient;
+CFeatureBuilder    *FeatureBuilder;
+CTelegramMQL5      *Telegram;
 
 //-- State -------------------------------------------------------------------
 int      g_currentBias        = DIR_NONE;
 datetime g_lastM5Close        = 0;
 bool     g_newsShieldActive   = false;
-datetime g_lastAICheck        = 0;
 bool     g_aiServerWasDown    = false;
 int      g_sessionTradeCount  = 0;
+int      g_timerCount         = 0;   // increments every 60s in OnTimer
 
 //+------------------------------------------------------------------+
 int OnInit()
@@ -71,14 +75,16 @@ int OnInit()
     }
 
     // Instantiate all components
-    RiskMgr       = new CRiskManager(RiskPercent, SessionRiskCap, SessionHaltPct);
-    DirLayer      = new CDirectionLayer(ATRMinPips);
-    CorrFilter    = new CCorrelationFilter("EURJPY");
-    EntryLayer    = new CEntryLayer(MaxSpreadPips);
-    Cascade       = new CCascadeEntry(SLPipsMin, SLPipsMax, TPPips);
-    ExitMgr       = new CExitManager(12.0, 12.0, 15.0, MaxHoldMinutes);
-    AIClient      = new CAIClient(AI_Host, AI_Port, 500);
+    RiskMgr        = new CRiskManager(RiskPercent, SessionRiskCap, SessionHaltPct);
+    DirLayer       = new CDirectionLayer(ATRMinPips);
+    CorrFilter     = new CCorrelationFilter("EURJPY");
+    EntryLayer     = new CEntryLayer(MaxSpreadPips);
+    Cascade        = new CCascadeEntry(SLPipsMin, SLPipsMax, TPPips);
+    ExitMgr        = new CExitManager(12.0, 12.0, 15.0, MaxHoldMinutes);
+    AIClient       = new CAIClient(AI_Host, AI_Port, 500);
     FeatureBuilder = new CFeatureBuilder();
+    Telegram       = new CTelegramMQL5();
+    Telegram.Init(TG_Token, TG_ChatId);
 
     // Initialise all indicator handles
     if(!DirLayer.Init())       return INIT_FAILED;
@@ -89,15 +95,23 @@ int OnInit()
     RiskMgr.InitSession();
     RiskMgr.InitWeek();
 
-    // Check AI server is reachable (warn if not, don't fail — server_test.py may not be running yet)
+    // Check AI server is reachable (warn if not, don't fail)
     if(!AIClient.IsServerAlive())
+    {
         Print("WARNING: AI server not responding on ", AI_Host, ":", AI_Port,
-              " — start server_test.py or ai_server/server.py");
+              " — start: uv run python ai_server/server.py");
+        Telegram.SendAIServerDown();
+    }
     else
         Print("AI server connected on ", AI_Host, ":", AI_Port);
 
-    EventSetTimer(60); // 1-minute timer for session management
+    // Warn if EURJPY not in Market Watch (CorrelationFilter will silently block all entries)
+    if(SymbolInfoDouble("EURJPY", SYMBOL_BID) == 0)
+        Print("WARNING: EURJPY bid = 0 — add EURJPY to Market Watch or CorrelationFilter will block all entries");
 
+    EventSetTimer(60); // 1-minute timer
+
+    Telegram.SendStartup();
     Print("ScalperEA initialised. Waiting for 5M direction...");
     return INIT_SUCCEEDED;
 }
@@ -123,6 +137,7 @@ void OnDeinit(const int reason)
     delete Cascade;
     delete ExitMgr;
     delete AIClient;
+    delete Telegram;
 }
 
 //+------------------------------------------------------------------+
@@ -161,6 +176,13 @@ void OnTick()
         PrintFormat("[ScalperEA] 5M bias updated: %s",
                     g_currentBias == DIR_BULL ? "BULL" :
                     g_currentBias == DIR_BEAR ? "BEAR" : "NONE");
+        // Log sub-condition breakdown so we can see exactly why bias is NONE
+        DirLayer.LogDiagnostics();
+
+        // Log EUR/JPY and spread state alongside the bias
+        bool corrOk = CorrFilter.IsAgreeing(g_currentBias);
+        PrintFormat("[5M-Diag] EURJPY agrees=%s | Spread=%.1f pips",
+            corrOk ? "Y" : "N", EntryLayer.GetSpreadPips());
     }
 
     if(g_currentBias == DIR_NONE) return;
@@ -181,11 +203,16 @@ void OnTick()
         if(!g_aiServerWasDown)
         {
             Print("[ScalperEA] AI server down — no new entries (safe mode)");
+            Telegram.SendAIServerDown();
             g_aiServerWasDown = true;
         }
         return;
     }
-    g_aiServerWasDown = false;
+    if(g_aiServerWasDown)
+    {
+        Print("[ScalperEA] AI server reconnected");
+        g_aiServerWasDown = false;
+    }
 
     if(ai.newsRisk >= 70)
     {
@@ -203,22 +230,34 @@ void OnTick()
     if(Cascade.ExecutePilot(g_currentBias))
     {
         g_sessionTradeCount++;
-        ExitMgr.OnSequenceOpened(SymbolInfoDouble(_Symbol,
-            g_currentBias == 1 ? SYMBOL_ASK : SYMBOL_BID));
+        string dir        = (g_currentBias == 1) ? "BUY" : "SELL";
+        double entryPrice = SymbolInfoDouble(_Symbol, g_currentBias == 1 ? SYMBOL_ASK : SYMBOL_BID);
+        ExitMgr.OnSequenceOpened(entryPrice);
 
         PrintFormat("[ScalperEA] ENTRY #%d | Dir=%s | AI=%d | Trend=%d | News=%d",
-                    g_sessionTradeCount,
-                    g_currentBias == 1 ? "BUY" : "SELL",
+                    g_sessionTradeCount, dir,
                     ai.entryScore, ai.trendScore, ai.newsRisk);
+
+        double sl  = (g_currentBias == 1)
+                     ? entryPrice - SLPipsMin * 10.0 * _Point
+                     : entryPrice + SLPipsMin * 10.0 * _Point;
+        double tp1 = (g_currentBias == 1)
+                     ? entryPrice + TPPips * 10.0 * _Point
+                     : entryPrice - TPPips * 10.0 * _Point;
+        Telegram.SendTradeEntry(dir, 0.01, entryPrice, sl, tp1,
+                                ai.entryScore, ai.trendScore, 1);
     }
 }
 
 //+------------------------------------------------------------------+
 void OnTimer()
 {
-    // Check for session reset (new trading day at 00:00 UTC)
+    g_timerCount++;
+
     MqlDateTime dt;
     TimeToStruct(TimeCurrent(), dt);
+
+    // Session reset (new day at 00:00 UTC)
     if(dt.hour == 0 && dt.min < 2)
     {
         Print("[ScalperEA] New day — resetting session");
@@ -229,6 +268,35 @@ void OnTimer()
     // Weekly reset (Monday 00:00)
     if(dt.day_of_week == 1 && dt.hour == 0 && dt.min < 2)
         RiskMgr.InitWeek();
+
+    // Every 5 minutes: log heartbeat to Experts tab
+    if(g_timerCount % 5 == 0)
+    {
+        string biasStr = (g_currentBias == DIR_BULL) ? "BULL"
+                       : (g_currentBias == DIR_BEAR) ? "BEAR" : "NONE";
+        bool   aiUp    = AIClient.IsServerAlive();
+        double spread  = EntryLayer.GetSpreadPips();
+        bool   corrOk  = CorrFilter.IsAgreeing(g_currentBias);
+
+        PrintFormat("[Heartbeat] %02d:%02d UTC | Bias=%s | EURJPY=%s | AI=%s | Spread=%.1f pips | SessionTrades=%d | Halt=%s",
+            dt.hour, dt.min, biasStr,
+            corrOk  ? "agree" : "NO",
+            aiUp    ? "UP"    : "DOWN",
+            spread,
+            g_sessionTradeCount,
+            RiskMgr.IsHaltTriggered() ? "YES" : "no");
+    }
+
+    // Every 60 minutes: send Telegram heartbeat
+    if(g_timerCount % 60 == 0)
+    {
+        string biasStr = (g_currentBias == DIR_BULL) ? "BULL"
+                       : (g_currentBias == DIR_BEAR) ? "BEAR" : "NONE";
+        Telegram.SendHeartbeat(biasStr, AIClient.IsServerAlive(),
+                               EntryLayer.GetSpreadPips(),
+                               g_sessionTradeCount,
+                               RiskMgr.IsHaltTriggered());
+    }
 }
 
 //+------------------------------------------------------------------+

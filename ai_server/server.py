@@ -43,8 +43,21 @@ sys.path.insert(0, str(ROOT))
 
 from ai_server.scorer import AIScorer
 from ai_server.news_shield import NewsShield
+from ai_server.telegram_alerts import TelegramAlerter
 
 scorer = AIScorer()
+
+# Telegram alerter — initialised in main_async after config is loaded
+_tg: TelegramAlerter | None = None
+
+def _tg_send(text: str) -> None:
+    """Fire-and-forget Telegram send. Swallows all errors so server never crashes."""
+    if _tg is None:
+        return
+    try:
+        _tg._send(text)
+    except Exception as e:
+        log.warning(f"Telegram send failed: {e}")
 
 # ── Request handler ──────────────────────────────────────────────────────────
 
@@ -124,7 +137,25 @@ async def handle_client(reader: asyncio.StreamReader,
 
 # ── Server lifecycle ─────────────────────────────────────────────────────────
 
+async def _hourly_heartbeat() -> None:
+    """Send a Telegram heartbeat every hour so we know the server is alive."""
+    while True:
+        await asyncio.sleep(3600)
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        loaded = "✅ loaded" if scorer.is_loaded else "⚠️ fallback"
+        phase  = scorer._news_shield.phase if scorer._news_shield else "N/A"
+        _tg_send(
+            f"🖥 <b>AI SERVER HEARTBEAT</b>\n"
+            f"Models: {loaded}\n"
+            f"News Shield phase: {phase}\n"
+            f"Time: {now}"
+        )
+        log.info("Hourly Telegram heartbeat sent.")
+
+
 async def main_async(host: str, port: int) -> None:
+    global _tg
     log.info("=" * 50)
     log.info("GBP/JPY AI Server starting")
     log.info(f"Loading models from {ROOT / 'models'}...")
@@ -143,10 +174,17 @@ async def main_async(host: str, port: int) -> None:
         with open(config_path) as f:
             config = json.load(f)
 
+    # ── Telegram ──────────────────────────────────────────────────────────────
+    tg_cfg  = config.get("telegram", {})
+    tg_token = tg_cfg.get("bot_token", "")
+    tg_chat  = tg_cfg.get("chat_id", "")
+    if tg_token and "PASTE" not in tg_token and "YOUR_" not in tg_token:
+        _tg = TelegramAlerter(token=tg_token, chat_id=tg_chat)
+        log.info("Telegram alerter configured (chat_id=%s)", tg_chat)
+    else:
+        log.warning("Telegram not configured — set bot_token and chat_id in config.json")
+
     # boj_alert_file: path the MQL5 BoJWatchdog reads from.
-    # On the VPS, set this in config.json news_shield.boj_alert_file to the
-    # MT5 data folder path, e.g.:
-    #   C:\Users\<user>\AppData\Roaming\MetaQuotes\Terminal\<hash>\MQL5\Files\boj_alert.txt
     boj_alert_file = config.get("news_shield", {}).get("boj_alert_file", "config/boj_alert.txt")
     boj_alert_path = Path(boj_alert_file) if Path(boj_alert_file).is_absolute() else ROOT / boj_alert_file
 
@@ -160,6 +198,17 @@ async def main_async(host: str, port: int) -> None:
     log.info(f"Listening on {addr[0]}:{addr[1]}")
     log.info("=" * 50)
 
+    # ── Startup Telegram ping ─────────────────────────────────────────────────
+    model_status = "✅ Models loaded" if scorer.is_loaded else "⚠️ Fallback mode (no models)"
+    _tg_send(
+        f"🖥 <b>AI SERVER ONLINE</b>\n"
+        f"{model_status}\n"
+        f"Listening on {addr[0]}:{addr[1]}\n"
+        f"News Shield: phase={shield.phase}"
+    )
+    if _tg:
+        log.info("Telegram startup message sent.")
+
     loop = asyncio.get_running_loop()
 
     def _shutdown():
@@ -172,6 +221,7 @@ async def main_async(host: str, port: int) -> None:
             loop.add_signal_handler(sig, _shutdown)
 
     async with server:
+        asyncio.ensure_future(_hourly_heartbeat())
         await server.serve_forever()
 
 

@@ -232,6 +232,43 @@ public:
 
     int GetCachedBias() { return m_cachedBias; }
 
+    // Log the pass/fail state of every sub-condition — call at each 5M close
+    void LogDiagnostics()
+    {
+        double e21, e50, e200;
+        bool emaDataOk = GetEMAValues(e21, e50, e200);
+        double price   = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+
+        double atr[1];
+        bool atrDataOk  = (CopyBuffer(m_hATR,  0, 0, 1, atr)  == 1);
+        double atrPips  = atrDataOk ? atr[0] / m_pipSize : 0;
+
+        double hist[1];
+        bool macdDataOk = (CopyBuffer(m_hMACD, 2, 0, 1, hist) == 1);
+
+        bool atrPass      = atrDataOk  && (atrPips >= m_atrMinPips);
+        bool emaStackBull = emaDataOk  && (e21 > e50 && e50 > e200 && price > e21);
+        bool emaStackBear = emaDataOk  && (e21 < e50 && e50 < e200 && price < e21);
+        bool macdBull     = macdDataOk && hist[0] > 0;
+        bool macdBear     = macdDataOk && hist[0] < 0;
+        bool structBull   = IsStructureBullish();
+        bool structBear   = IsStructureBearish();
+
+        PrintFormat("[5M-Diag] ATR=%.1f pips (min %.1f) [%s]",
+            atrPips, m_atrMinPips, atrPass ? "OK" : "FAIL");
+        PrintFormat("[5M-Diag] EMA stack: BULL=%s BEAR=%s | Price=%.3f EMA21=%.3f EMA50=%.3f EMA200=%.3f",
+            emaStackBull ? "Y" : "N", emaStackBear ? "Y" : "N",
+            price,
+            emaDataOk ? e21  : 0,
+            emaDataOk ? e50  : 0,
+            emaDataOk ? e200 : 0);
+        PrintFormat("[5M-Diag] MACD hist=%.5f [BULL=%s BEAR=%s]",
+            macdDataOk ? hist[0] : 0,
+            macdBull ? "Y" : "N", macdBear ? "Y" : "N");
+        PrintFormat("[5M-Diag] Structure: BULL=%s BEAR=%s",
+            structBull ? "Y" : "N", structBear ? "Y" : "N");
+    }
+
     // Used by ExitManager to detect direction flip while trade is open
     bool HasDirectionFlipped(int entryDirection)
     {

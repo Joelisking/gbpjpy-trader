@@ -108,8 +108,8 @@
   },
 
   "telegram": {
-    "bot_token": "YOUR_BOT_TOKEN_HERE",
-    "chat_id": "YOUR_CHAT_ID_HERE",
+    "bot_token": "PASTE_TOKEN_HERE",
+    "chat_id": "PASTE_CHAT_ID_HERE",
     "daily_summary_utc": "22:00"
   },
 

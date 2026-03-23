@@ -10,7 +10,10 @@
       "Bash(uv:*)",
       "Bash(pkill -f \"train_scalper_model\" 2>/dev/null; echo \"killed\")",
       "Bash(pkill -f \"train_scalper_model\" 2>/dev/null; pkill -f \"train_swing_model\" 2>/dev/null; echo \"killed all training processes\")",
-      "Bash(git check-ignore:*)"
+      "Bash(git check-ignore:*)",
+      "Bash(git rm:*)",
+      "Bash(grep:*)",
+      "Bash(git add:*)"
     ]
   }
 }
