@@ -72,7 +72,7 @@ public:
 
     bool SendStartup()
     {
-        string msg = "\U0001F7E2 <b>SWING EA ONLINE</b>\n"
+        string msg = "🟢 <b>SWING EA ONLINE</b>\n"
                      "Symbol: GBPJPY H1\n"
                      "Time: " + TimeToString(TimeGMT(), TIME_DATE|TIME_MINUTES) + " UTC";
         return Send(msg);
@@ -82,7 +82,7 @@ public:
                         double entryPrice, double sl, double tp1, double tp2,
                         int trendScore, int newsRisk, double carryDiff)
     {
-        string emoji = (direction == "BUY") ? "\U0001F4C8" : "\U0001F4C9";
+        string emoji = (direction == "BUY") ? "📈" : "📉";
         string msg = emoji + " <b>SWING ENTRY</b>\n"
             + "Dir: " + direction + " | Lots: " + DoubleToString(lots, 2) + "\n"
             + "Price: " + DoubleToString(entryPrice, 3)
@@ -96,11 +96,11 @@ public:
         return Send(msg);
     }
 
-    bool SendTP1Hit(string direction, double tp1Price, double partialPips, double partialUsd)
+    bool SendTP1Hit(string direction, double partialPips, double partialUsd)
     {
         string pips = "+" + DoubleToString(partialPips, 1);
         string usd  = "+$" + DoubleToString(partialUsd, 2);
-        string msg = "\u2705 <b>SWING TP1 HIT</b>\n"
+        string msg = "✅ <b>SWING TP1 HIT</b>\n"
             + "Dir: " + direction + " | 50% closed\n"
             + "Pips: " + pips + " | P&L: " + usd + "\n"
             + "Remaining 50% trailing to TP2\n"
@@ -111,7 +111,7 @@ public:
     bool SendTradeExit(string direction, double profitPips,
                        double profitUsd, string reason)
     {
-        string emoji = (profitUsd >= 0) ? "\u2705" : "\u274C";
+        string emoji = (profitUsd >= 0) ? "✅" : "❌";
         string pips  = (profitPips >= 0 ? "+" : "") + DoubleToString(profitPips, 1);
         string usd   = (profitUsd  >= 0 ? "+$" : "-$") + DoubleToString(MathAbs(profitUsd), 2);
         string msg = emoji + " <b>SWING EXIT</b>\n"
@@ -123,7 +123,7 @@ public:
 
     bool SendAIServerDown()
     {
-        string msg = "\u26A0\uFE0F <b>SWING EA — AI SERVER NOT RESPONDING</b>\n"
+        string msg = "⚠️ <b>SWING EA — AI SERVER NOT RESPONDING</b>\n"
                      "Swing EA entering SAFE MODE — no new entries.\n"
                      "Check VPS: uv run python ai_server/server.py\n"
                      "Time: " + TimeToString(TimeGMT(), TIME_DATE|TIME_MINUTES) + " UTC";
@@ -133,22 +133,22 @@ public:
     bool SendHeartbeat(string bias, bool aiUp, double spreadPips,
                        int weeklyTrades, bool haltTriggered, bool positionOpen)
     {
-        string biasEmoji = (bias == "BULL") ? "\U0001F7E2" : (bias == "BEAR") ? "\U0001F534" : "\u26AA";
-        string posStr    = positionOpen ? "\U0001F4C8 OPEN" : "FLAT";
-        string msg = "\U0001F916 <b>SWING HEARTBEAT</b>\n"
+        string biasEmoji = (bias == "BULL") ? "🟢" : (bias == "BEAR") ? "🔴" : "⚪";
+        string posStr    = positionOpen ? "📈 OPEN" : "FLAT";
+        string msg = "🤖 <b>SWING HEARTBEAT</b>\n"
             + "Bias (4H): " + biasEmoji + " " + bias + "\n"
             + "Position: " + posStr + "\n"
-            + "AI Server: " + (aiUp ? "\u2705 UP" : "\u274C DOWN") + "\n"
+            + "AI Server: " + (aiUp ? "✅ UP" : "❌ DOWN") + "\n"
             + "Spread: " + DoubleToString(spreadPips, 1) + " pips\n"
             + "Weekly Trades: " + IntegerToString(weeklyTrades) + "\n"
-            + (haltTriggered ? "\U0001F6D1 SESSION HALTED\n" : "")
+            + (haltTriggered ? "🛑 SESSION HALTED\n" : "")
             + "Time: " + TimeToString(TimeGMT(), TIME_DATE|TIME_MINUTES) + " UTC";
         return Send(msg);
     }
 
     bool SendBoJAlert()
     {
-        string msg = "\u26A0\uFE0F <b>BOJ INTERVENTION DETECTED</b>\n"
+        string msg = "⚠️ <b>BOJ INTERVENTION DETECTED</b>\n"
                      "Swing position closed — BoJ watchdog triggered.\n"
                      "Time: " + TimeToString(TimeGMT(), TIME_DATE|TIME_MINUTES) + " UTC";
         return Send(msg);

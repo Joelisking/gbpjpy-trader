@@ -116,6 +116,11 @@ public:
         return spreadPips <= m_maxSpreadPips;
     }
 
+    double GetSpreadPips()
+    {
+        return SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) * _Point / PipSize();
+    }
+
     // ── Main entry check ─────────────────────────────────────────────
     // Call on new 1H candle open (after previous bar confirmed)
 
