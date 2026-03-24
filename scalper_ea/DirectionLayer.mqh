@@ -98,8 +98,11 @@ private:
         return (atr[0] >= m_atrMinPips * m_pipSize);
     }
 
-    // Detect market structure on 5M
-    // Returns true if >= 2 consecutive HH+HL found in recent bars
+    // Detect market structure on 5M.
+    // Bullish: most recent swing high > previous swing high (HH)
+    //      AND most recent swing low  > previous swing low  (HL).
+    // Requires >= 3 swing points of each type to ensure enough price
+    // history exists before checking the current pair.
     bool IsStructureBullish()
     {
         int lookback = m_structureLookback;
@@ -110,34 +113,22 @@ private:
         if(CopyHigh(_Symbol, m_tf, 0, lookback, highs) != lookback) return false;
         if(CopyLow (_Symbol, m_tf, 0, lookback, lows)  != lookback) return false;
 
-        // Find swing highs and lows (simple: bar where high > neighbours)
         double swingHighs[10], swingLows[10];
-        int    nH = 0, nL = 0;
-
+        int nH = 0, nL = 0;
         for(int i = 2; i < lookback - 2 && (nH < 10 || nL < 10); i++)
         {
-            // Swing high: high[i] > high[i-1] and high[i] > high[i+1]
             if(highs[i] > highs[i-1] && highs[i] > highs[i+1] && nH < 10)
                 swingHighs[nH++] = highs[i];
-
-            // Swing low: low[i] < low[i-1] and low[i] < low[i+1]
-            if(lows[i] < lows[i-1] && lows[i] < lows[i+1] && nL < 10)
-                swingLows[nL++] = lows[i];
+            if(lows[i]  < lows[i-1]  && lows[i]  < lows[i+1]  && nL < 10)
+                swingLows[nL++]  = lows[i];
         }
 
-        if(nH < 2 || nL < 2) return false;
+        // Need at least 3 swing points of each type to confirm structure exists
+        if(nH < 3 || nL < 3) return false;
 
-        // Check for at least 2 consecutive HH: swingHighs[0] > swingHighs[1] (most recent first)
-        int hhCount = 0;
-        for(int i = 0; i < nH - 1; i++)
-            if(swingHighs[i] > swingHighs[i+1]) hhCount++;
-
-        // Check for at least 2 consecutive HL: swingLows[0] > swingLows[1]
-        int hlCount = 0;
-        for(int i = 0; i < nL - 1; i++)
-            if(swingLows[i] > swingLows[i+1]) hlCount++;
-
-        return (hhCount >= 2 && hlCount >= 2);
+        // Most recent HH: swingHighs[0] > swingHighs[1]
+        // Most recent HL: swingLows[0]  > swingLows[1]
+        return (swingHighs[0] > swingHighs[1] && swingLows[0] > swingLows[1]);
     }
 
     bool IsStructureBearish()
@@ -152,28 +143,19 @@ private:
 
         double swingHighs[10], swingLows[10];
         int nH = 0, nL = 0;
-
         for(int i = 2; i < lookback - 2 && (nH < 10 || nL < 10); i++)
         {
             if(highs[i] > highs[i-1] && highs[i] > highs[i+1] && nH < 10)
                 swingHighs[nH++] = highs[i];
-            if(lows[i] < lows[i-1] && lows[i] < lows[i+1] && nL < 10)
-                swingLows[nL++] = lows[i];
+            if(lows[i]  < lows[i-1]  && lows[i]  < lows[i+1]  && nL < 10)
+                swingLows[nL++]  = lows[i];
         }
 
-        if(nH < 2 || nL < 2) return false;
+        if(nH < 3 || nL < 3) return false;
 
-        // LL: swingLows[0] < swingLows[1]
-        int llCount = 0;
-        for(int i = 0; i < nL - 1; i++)
-            if(swingLows[i] < swingLows[i+1]) llCount++;
-
-        // LH: swingHighs[0] < swingHighs[1]
-        int lhCount = 0;
-        for(int i = 0; i < nH - 1; i++)
-            if(swingHighs[i] < swingHighs[i+1]) lhCount++;
-
-        return (llCount >= 2 && lhCount >= 2);
+        // Most recent LL: swingLows[0]  < swingLows[1]
+        // Most recent LH: swingHighs[0] < swingHighs[1]
+        return (swingLows[0] < swingLows[1] && swingHighs[0] < swingHighs[1]);
     }
 
 public:
