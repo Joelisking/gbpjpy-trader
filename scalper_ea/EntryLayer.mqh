@@ -166,6 +166,38 @@ public:
             return HasBearishRejectionCandle();
     }
 
+    // Log pass/fail for every 1M entry sub-condition — call once per 1M close
+    void Log1MDiagnostics(int direction)
+    {
+        if(direction == DIR_NONE) return;
+
+        bool spreadOk   = IsSpreadOk();
+        bool pullbackOk = HasPullbackToEMA21(direction);
+        bool rsiOk      = IsRSI7InZone(direction);
+        bool candleOk   = (direction == 1) ? HasBullishRejectionCandle()
+                                           : HasBearishRejectionCandle();
+
+        double rsi[1];
+        double rsiVal = (CopyBuffer(m_hRSI7_1M, 0, 1, 1, rsi) == 1) ? rsi[0] : -1;
+
+        double ema[1];
+        double emaVal = (CopyBuffer(m_hEMA21_1M, 0, 1, 1, ema) == 1) ? ema[0] : 0;
+
+        double low[1], high[1];
+        ArraySetAsSeries(low,  true);
+        ArraySetAsSeries(high, true);
+        double candleExtreme = 0;
+        if(direction == 1 && CopyLow (_Symbol, PERIOD_M1, 1, 1, low)  == 1) candleExtreme = low[0];
+        if(direction == -1 && CopyHigh(_Symbol, PERIOD_M1, 1, 1, high) == 1) candleExtreme = high[0];
+
+        PrintFormat("[1M-Diag] Dir=%s | Spread=%.1f pips [%s] | EMA21=%.3f CandleExtreme=%.3f [%s] | RSI7=%.1f [%s] | Candle=%s",
+            (direction == 1) ? "BULL" : "BEAR",
+            GetSpreadPips(),        spreadOk   ? "OK" : "FAIL",
+            emaVal, candleExtreme,  pullbackOk ? "OK" : "FAIL",
+            rsiVal,                 rsiOk      ? "OK" : "FAIL",
+            candleOk               ? "OK" : "FAIL");
+    }
+
     // Expose spread check separately (used in cascade decisions)
     bool IsSpreadAcceptable() { return IsSpreadOk(); }
 

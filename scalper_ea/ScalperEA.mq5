@@ -54,6 +54,7 @@ CTelegramMQL5      *Telegram;
 //-- State -------------------------------------------------------------------
 int      g_currentBias        = DIR_NONE;
 datetime g_lastM5Close        = 0;
+datetime g_lastM1Close        = 0;
 bool     g_newsShieldActive   = false;
 bool     g_aiServerWasDown    = false;
 bool     g_aiLastKnownUp      = false;  // updated by real score requests, avoids polling in heartbeat
@@ -183,6 +184,10 @@ void OnTick()
     }
 
     if(g_currentBias == DIR_NONE) return;
+
+    //-- Log 1M entry conditions once per 1M candle close -------------
+    if(HasNewM1Close())
+        EntryLayer.Log1MDiagnostics(g_currentBias);
 
     //-- EUR/JPY correlation filter ------------------------------------
     if(!CorrFilter.IsAgreeing(g_currentBias)) return;
@@ -319,6 +324,19 @@ bool HasNewM5Close()
     if(m5time[1] != g_lastM5Close)
     {
         g_lastM5Close = m5time[1];
+        return true;
+    }
+    return false;
+}
+
+bool HasNewM1Close()
+{
+    datetime m1time[];
+    ArraySetAsSeries(m1time, true);
+    if(CopyTime(_Symbol, PERIOD_M1, 0, 2, m1time) != 2) return false;
+    if(m1time[1] != g_lastM1Close)
+    {
+        g_lastM1Close = m1time[1];
         return true;
     }
     return false;

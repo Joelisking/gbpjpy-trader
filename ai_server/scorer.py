@@ -164,6 +164,7 @@ class AIScorer:
             features,
             self._scalper_bilstm, self._scalper_xgb, self._scaler_scalper,
             seq_len,
+            bilstm_weight=0.0,  # XGBoost-only until Phase 3 sends full sequences
         )
         return int(round(raw * 100))
 
