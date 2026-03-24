@@ -155,7 +155,7 @@ class AIScorer:
             return -1  # signal: models not loaded
 
         try:
-            features = np.array(json.loads(features_json), dtype=np.float32)
+            features = np.array(features_json if isinstance(features_json, list) else json.loads(features_json), dtype=np.float32)
         except (json.JSONDecodeError, ValueError):
             return -1
 
@@ -176,7 +176,7 @@ class AIScorer:
             return -1
 
         try:
-            features = np.array(json.loads(features_json), dtype=np.float32)
+            features = np.array(features_json if isinstance(features_json, list) else json.loads(features_json), dtype=np.float32)
         except (json.JSONDecodeError, ValueError):
             return -1
 

@@ -70,7 +70,7 @@ def _build_response(features: str, direction: str) -> dict:
     news_risk = scorer.score_news_risk()
 
     try:
-        flist = json.loads(features)
+        flist = features if isinstance(features, list) else json.loads(features)
     except (json.JSONDecodeError, ValueError):
         flist = []
 
