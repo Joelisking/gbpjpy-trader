@@ -1,17 +1,17 @@
 //+------------------------------------------------------------------+
-//|  TelegramMQL5.mqh                                                |
-//|  Sends Telegram messages from MQL5 via WebRequest.              |
+//|  TelegramMQL5.mqh  (Swing EA)                                    |
+//|  Sends Telegram messages from the Swing EA via WebRequest.      |
 //|                                                                  |
 //|  REQUIRED SETUP IN MT5 (one-time):                              |
 //|    Tools > Options > Expert Advisors                            |
-//|    ✓ Allow WebRequest for listed URLs                           |
+//|    Allow WebRequest for listed URLs                             |
 //|    Add URL: https://api.telegram.org                            |
 //|                                                                  |
 //|  If the token input is blank or still says PASTE_TOKEN_HERE,   |
 //|  all sends are silently skipped — no errors.                    |
 //+------------------------------------------------------------------+
-#ifndef TELEGRAM_MQL5_MQH
-#define TELEGRAM_MQL5_MQH
+#ifndef SWING_TELEGRAM_MQL5_MQH
+#define SWING_TELEGRAM_MQL5_MQH
 
 class CTelegramMQL5
 {
@@ -20,7 +20,6 @@ private:
     string m_chatId;
     bool   m_enabled;
 
-    // Escape quotes and backslashes so the JSON body stays valid
     string Escape(const string &s)
     {
         string out = s;
@@ -64,36 +63,47 @@ public:
         m_enabled = (StringLen(token) > 20 && StringFind(token, "PASTE") < 0
                                            && StringFind(token, "YOUR_")  < 0);
         if(m_enabled)
-            Print("[Telegram] Notifications enabled.");
+            Print("[Telegram] Swing notifications enabled.");
         else
-            Print("[Telegram] Token not configured — notifications disabled.");
+            Print("[Telegram] Token not configured — swing notifications disabled.");
     }
 
     bool IsEnabled() { return m_enabled; }
 
     bool SendStartup()
     {
-        string msg = "🟢 <b>SCALPER EA ONLINE</b>\n"
-                     "Symbol: GBPJPY M1\n"
+        string msg = "\U0001F7E2 <b>SWING EA ONLINE</b>\n"
+                     "Symbol: GBPJPY H1\n"
                      "Time: " + TimeToString(TimeGMT(), TIME_DATE|TIME_MINUTES) + " UTC";
         return Send(msg);
     }
 
     bool SendTradeEntry(string direction, double lots,
-                        double entryPrice, double sl, double tp1,
-                        int entryScore, int trendScore, int cascadeStep = 0)
+                        double entryPrice, double sl, double tp1, double tp2,
+                        int trendScore, int newsRisk, double carryDiff)
     {
-        string emoji = (direction == "BUY") ? "📈" : "📉";
-        string step  = (cascadeStep > 0)
-                       ? " (Cascade #" + IntegerToString(cascadeStep) + ")"
-                       : "";
-        string msg = emoji + " <b>TRADE ENTRY" + step + "</b>\n"
+        string emoji = (direction == "BUY") ? "\U0001F4C8" : "\U0001F4C9";
+        string msg = emoji + " <b>SWING ENTRY</b>\n"
             + "Dir: " + direction + " | Lots: " + DoubleToString(lots, 2) + "\n"
             + "Price: " + DoubleToString(entryPrice, 3)
-            + " | SL: " + DoubleToString(sl, 3)
-            + " | TP1: " + DoubleToString(tp1, 3) + "\n"
-            + "AI Entry: " + IntegerToString(entryScore)
-            + " | Trend: " + IntegerToString(trendScore) + "\n"
+            + " | SL: "  + DoubleToString(sl,  3) + "\n"
+            + "TP1: "    + DoubleToString(tp1, 3)
+            + " | TP2: " + DoubleToString(tp2, 3) + "\n"
+            + "Trend: "  + IntegerToString(trendScore)
+            + " | News: " + IntegerToString(newsRisk)
+            + " | Carry: " + DoubleToString(carryDiff, 2) + "%\n"
+            + "Time: " + TimeToString(TimeGMT(), TIME_DATE|TIME_MINUTES) + " UTC";
+        return Send(msg);
+    }
+
+    bool SendTP1Hit(string direction, double tp1Price, double partialPips, double partialUsd)
+    {
+        string pips = "+" + DoubleToString(partialPips, 1);
+        string usd  = "+$" + DoubleToString(partialUsd, 2);
+        string msg = "\u2705 <b>SWING TP1 HIT</b>\n"
+            + "Dir: " + direction + " | 50% closed\n"
+            + "Pips: " + pips + " | P&L: " + usd + "\n"
+            + "Remaining 50% trailing to TP2\n"
             + "Time: " + TimeToString(TimeGMT(), TIME_DATE|TIME_MINUTES) + " UTC";
         return Send(msg);
     }
@@ -101,10 +111,10 @@ public:
     bool SendTradeExit(string direction, double profitPips,
                        double profitUsd, string reason)
     {
-        string emoji = (profitUsd >= 0) ? "✅" : "❌";
+        string emoji = (profitUsd >= 0) ? "\u2705" : "\u274C";
         string pips  = (profitPips >= 0 ? "+" : "") + DoubleToString(profitPips, 1);
         string usd   = (profitUsd  >= 0 ? "+$" : "-$") + DoubleToString(MathAbs(profitUsd), 2);
-        string msg = emoji + " <b>TRADE EXIT</b>\n"
+        string msg = emoji + " <b>SWING EXIT</b>\n"
             + "Dir: " + direction + " | P&L: " + pips + " pips | " + usd + "\n"
             + "Reason: " + reason + "\n"
             + "Time: " + TimeToString(TimeGMT(), TIME_DATE|TIME_MINUTES) + " UTC";
@@ -113,35 +123,35 @@ public:
 
     bool SendAIServerDown()
     {
-        string msg = "⚠️ <b>AI SERVER NOT RESPONDING</b>\n"
-                     "Scalper entering SAFE MODE — no new entries.\n"
+        string msg = "\u26A0\uFE0F <b>SWING EA — AI SERVER NOT RESPONDING</b>\n"
+                     "Swing EA entering SAFE MODE — no new entries.\n"
                      "Check VPS: uv run python ai_server/server.py\n"
                      "Time: " + TimeToString(TimeGMT(), TIME_DATE|TIME_MINUTES) + " UTC";
         return Send(msg);
     }
 
     bool SendHeartbeat(string bias, bool aiUp, double spreadPips,
-                       int sessionTrades, bool haltTriggered)
+                       int weeklyTrades, bool haltTriggered, bool positionOpen)
     {
-        string biasEmoji = (bias == "BULL") ? "🟢" : (bias == "BEAR") ? "🔴" : "⚪";
-        string msg = "🤖 <b>SCALPER HEARTBEAT</b>\n"
-            + "Bias: " + biasEmoji + " " + bias + "\n"
-            + "AI Server: " + (aiUp ? "✅ UP" : "❌ DOWN") + "\n"
+        string biasEmoji = (bias == "BULL") ? "\U0001F7E2" : (bias == "BEAR") ? "\U0001F534" : "\u26AA";
+        string posStr    = positionOpen ? "\U0001F4C8 OPEN" : "FLAT";
+        string msg = "\U0001F916 <b>SWING HEARTBEAT</b>\n"
+            + "Bias (4H): " + biasEmoji + " " + bias + "\n"
+            + "Position: " + posStr + "\n"
+            + "AI Server: " + (aiUp ? "\u2705 UP" : "\u274C DOWN") + "\n"
             + "Spread: " + DoubleToString(spreadPips, 1) + " pips\n"
-            + "Session Trades: " + IntegerToString(sessionTrades) + "\n"
-            + (haltTriggered ? "🛑 SESSION HALTED\n" : "")
+            + "Weekly Trades: " + IntegerToString(weeklyTrades) + "\n"
+            + (haltTriggered ? "\U0001F6D1 SESSION HALTED\n" : "")
             + "Time: " + TimeToString(TimeGMT(), TIME_DATE|TIME_MINUTES) + " UTC";
         return Send(msg);
     }
 
-    bool SendRiskAlert(string level, double lossPct)
+    bool SendBoJAlert()
     {
-        string emoji = (level == "RED") ? "🔴" : "🟡";
-        string msg = emoji + " <b>RISK ALERT — " + level + "</b>\n"
-            + "Session loss: " + DoubleToString(lossPct, 1) + "%\n"
-            + (level == "RED" ? "SESSION HALTED — no new entries.\n" : "Approaching halt threshold.\n")
-            + "Time: " + TimeToString(TimeGMT(), TIME_DATE|TIME_MINUTES) + " UTC";
+        string msg = "\u26A0\uFE0F <b>BOJ INTERVENTION DETECTED</b>\n"
+                     "Swing position closed — BoJ watchdog triggered.\n"
+                     "Time: " + TimeToString(TimeGMT(), TIME_DATE|TIME_MINUTES) + " UTC";
         return Send(msg);
     }
 };
-#endif // TELEGRAM_MQL5_MQH
+#endif // SWING_TELEGRAM_MQL5_MQH

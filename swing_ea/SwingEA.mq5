@@ -3,11 +3,10 @@
 //|  GBP/JPY Swing Rider Bot — 1H/4H timeframes                     |
 //|  Attach to GBPJPY H1 chart.                                      |
 //|                                                                   |
-//|  Phase 2: full rule-based logic, dummy AI scores via server_test  |
-//|  Phase 3: replace server_test.py with full AI server             |
+//|  Phase 2: full rule-based logic with file-based AI IPC           |
 //+------------------------------------------------------------------+
 #property copyright "GBP/JPY AI Bot"
-#property version   "2.0"
+#property version   "2.1"
 #property strict
 
 #include "RiskManager.mqh"
@@ -17,7 +16,9 @@
 #include "SwingPositionManager.mqh"
 #include "BoJWatchdog.mqh"
 #include "AIClient.mqh"
+#include "FileAIClient.mqh"
 #include "FeatureBuilder.mqh"
+#include "TelegramMQL5.mqh"
 
 //-- Inputs ------------------------------------------------------------------
 input double RiskPercent        = 2.0;    // % account risk per trade
@@ -31,6 +32,8 @@ input double MaxSpreadPips      = 25.0;
 input double EMA50PullbackPips  = 15.0;  // how close to 1H EMA50 for pullback entry
 input bool   NewsShieldEnabled  = true;
 input bool   BoJWatchdogEnabled = true;
+input string TG_Token           = "PASTE_TOKEN_HERE";   // Telegram bot token
+input string TG_ChatId          = "PASTE_CHAT_ID_HERE"; // Telegram chat ID
 
 //-- Objects -----------------------------------------------------------------
 CRiskManager          *RiskMgr;
@@ -39,8 +42,10 @@ CCarryTradeFilter     *CarryFilter;
 CSwingEntry1H         *EntryLayer;
 CSwingPositionManager *PosMgr;
 CBoJWatchdog          *BoJWatch;
-CAIClient             *AIClient;
+CAIClient             *AIClient;     // kept for socket fallback
+CFileAIClient         *FileAIClient;
 CFeatureBuilder       *FeatureBldr;
+CTelegramMQL5         *Telegram;
 
 //-- State -------------------------------------------------------------------
 int      g_currentBias       = DIR_NONE;
@@ -48,13 +53,16 @@ datetime g_lastH4Close       = 0;
 datetime g_lastH1Close       = 0;
 bool     g_newsShieldActive  = false;
 bool     g_aiServerWasDown   = false;
-double   g_lastStructuralHL  = 0;  // cached for structural breakdown check
+bool     g_aiLastKnownUp     = false;  // updated by 5-min AI ping in OnTimer
+double   g_lastStructuralHL  = 0;
 double   g_lastStructuralLH  = 0;
+int      g_sessionTradeCount = 0;
+int      g_timerCount        = 0;  // increments every 60s in OnTimer
 
 //+------------------------------------------------------------------+
 int OnInit()
 {
-    Print("=== SwingEA v2.0 starting on ", _Symbol, " H1 ===");
+    Print("=== SwingEA v2.1 starting on ", _Symbol, " H1 ===");
 
     if(_Symbol != "GBPJPY")
     {
@@ -76,7 +84,10 @@ int OnInit()
     PosMgr        = new CSwingPositionManager(RiskPercent, 48.0, 72.0);
     BoJWatch      = new CBoJWatchdog(200.0, 3.0);
     AIClient      = new CAIClient(AI_Host, AI_Port, 500);
+    FileAIClient  = new CFileAIClient(500);
     FeatureBldr   = new CFeatureBuilder();
+    Telegram      = new CTelegramMQL5();
+    Telegram.Init(TG_Token, TG_ChatId);
 
     if(!TrendAnalyzer.Init())  return INIT_FAILED;
     if(!EntryLayer.Init())     return INIT_FAILED;
@@ -85,14 +96,25 @@ int OnInit()
     RiskMgr.InitSession();
     RiskMgr.InitWeek();
 
-    if(!AIClient.IsServerAlive())
-        Print("WARNING: AI server not responding on ", AI_Host, ":", AI_Port,
-              " — start server_test.py or ai_server/server.py");
+    // Check AI server via file IPC (sockets disabled on Deriv MT5)
+    if(!FileAIClient.IsServerAlive())
+    {
+        Print("WARNING: AI server not responding via file IPC — start: uv run python ai_server/server.py");
+        Telegram.SendAIServerDown();
+    }
     else
-        Print("AI server connected on ", AI_Host, ":", AI_Port);
+    {
+        Print("AI server connected (file IPC)");
+        g_aiLastKnownUp = true;
+    }
 
-    EventSetTimer(60);
+    // Warn if EURJPY not in Market Watch
+    if(SymbolInfoDouble("EURJPY", SYMBOL_BID) == 0)
+        Print("WARNING: EURJPY bid = 0 — add EURJPY to Market Watch or FeatureBuilder will return empty features");
 
+    EventSetTimer(60);  // 1-minute timer
+
+    Telegram.SendStartup();
     Print("SwingEA initialised. Waiting for 4H direction...");
     return INIT_SUCCEEDED;
 }
@@ -117,6 +139,8 @@ void OnDeinit(const int reason)
     delete PosMgr;
     delete BoJWatch;
     delete AIClient;
+    delete FileAIClient;
+    delete Telegram;
 }
 
 //+------------------------------------------------------------------+
@@ -134,6 +158,7 @@ void OnTick()
         {
             Print("[SwingEA] BoJ intervention detected — closing position");
             PosMgr.CloseAll();
+            Telegram.SendBoJAlert();
         }
         return;
     }
@@ -168,6 +193,11 @@ void OnTick()
 
         // AI score collapse check
         SAIResponse ai = GetAIScore();
+        if(ai.valid)
+        {
+            g_aiLastKnownUp = true;
+            g_aiServerWasDown = false;
+        }
         bool aiCollapse = ai.valid && ai.trendScore < AICollapseScore;
 
         bool closed = PosMgr.ManagePosition(BoJWatch.IsFlagged(), aiCollapse);
@@ -197,6 +227,9 @@ void OnTick()
                     g_currentBias == DIR_BULL ? "BULL" :
                     g_currentBias == DIR_BEAR ? "BEAR" : "NONE");
 
+        // Log sub-condition breakdown so we can see exactly why bias is NONE
+        TrendAnalyzer.LogDiagnostics();
+
         // Cache structural reference levels for breakdown detection
         double pip = 10.0 * _Point;
         g_lastStructuralHL = TrendAnalyzer.GetStructuralSwingLow(pip, 40);
@@ -222,14 +255,21 @@ void OnTick()
     SAIResponse ai = GetAIScore();
     if(!ai.valid)
     {
+        g_aiLastKnownUp = false;
         if(!g_aiServerWasDown)
         {
             Print("[SwingEA] AI server down — no new entries (safe mode)");
+            Telegram.SendAIServerDown();
             g_aiServerWasDown = true;
         }
         return;
     }
-    g_aiServerWasDown = false;
+    g_aiLastKnownUp = true;
+    if(g_aiServerWasDown)
+    {
+        Print("[SwingEA] AI server reconnected");
+        g_aiServerWasDown = false;
+    }
 
     if(ai.newsRisk >= 70)
     {
@@ -257,16 +297,34 @@ void OnTick()
 
     if(PosMgr.OpenPosition(g_currentBias, slPrc))
     {
-        PrintFormat("[SwingEA] ENTRY | Dir=%s | TrendScore=%d | NewsRisk=%d | Carry=%.2f",
-                    g_currentBias == 1 ? "BUY" : "SELL",
-                    ai.trendScore, ai.newsRisk,
-                    CarryFilter.GetDifferentialForAI());
+        g_sessionTradeCount++;
+        string dir        = (g_currentBias == 1) ? "BUY" : "SELL";
+        double entryPrice = SymbolInfoDouble(_Symbol, g_currentBias == 1 ? SYMBOL_ASK : SYMBOL_BID);
+        double carry      = CarryFilter.GetDifferentialForAI();
+
+        // Approximate TP1 (1:1.5 R:R) and TP2 (1:3 R:R) for Telegram
+        double slDist = MathAbs(entryPrice - slPrc);
+        double tp1    = (g_currentBias == 1)
+                        ? entryPrice + slDist * 1.5
+                        : entryPrice - slDist * 1.5;
+        double tp2    = (g_currentBias == 1)
+                        ? entryPrice + slDist * 3.0
+                        : entryPrice - slDist * 3.0;
+
+        PrintFormat("[SwingEA] ENTRY #%d | Dir=%s | TrendScore=%d | NewsRisk=%d | Carry=%.2f",
+                    g_sessionTradeCount, dir,
+                    ai.trendScore, ai.newsRisk, carry);
+
+        Telegram.SendTradeEntry(dir, 0.01, entryPrice, slPrc, tp1, tp2,
+                                ai.trendScore, ai.newsRisk, carry);
     }
 }
 
 //+------------------------------------------------------------------+
 void OnTimer()
 {
+    g_timerCount++;
+
     MqlDateTime dt;
     TimeToStruct(TimeCurrent(), dt);
 
@@ -275,11 +333,42 @@ void OnTimer()
     {
         Print("[SwingEA] New day — resetting session");
         RiskMgr.InitSession();
+        g_sessionTradeCount = 0;
     }
 
     // Weekly reset (Monday 00:00)
     if(dt.day_of_week == 1 && dt.hour == 0 && dt.min < 2)
         RiskMgr.InitWeek();
+
+    // Every 5 minutes: ping AI server + log heartbeat to Experts tab
+    if(g_timerCount % 5 == 0)
+    {
+        g_aiLastKnownUp = FileAIClient.IsServerAlive();
+
+        string biasStr = (g_currentBias == DIR_BULL) ? "BULL"
+                       : (g_currentBias == DIR_BEAR) ? "BEAR" : "NONE";
+        double spread  = EntryLayer.GetSpreadPips();
+
+        PrintFormat("[Heartbeat] %02d:%02d UTC | Bias=%s | AI=%s | Spread=%.1f pips | Trades=%d | Position=%s | Halt=%s",
+            dt.hour, dt.min, biasStr,
+            g_aiLastKnownUp          ? "UP"   : "DOWN",
+            spread,
+            g_sessionTradeCount,
+            PosMgr.IsPositionOpen()  ? "OPEN" : "flat",
+            RiskMgr.IsHaltTriggered() ? "YES" : "no");
+    }
+
+    // Every 60 minutes: send Telegram heartbeat
+    if(g_timerCount % 60 == 0)
+    {
+        string biasStr = (g_currentBias == DIR_BULL) ? "BULL"
+                       : (g_currentBias == DIR_BEAR) ? "BEAR" : "NONE";
+        Telegram.SendHeartbeat(biasStr, g_aiLastKnownUp,
+                               EntryLayer.GetSpreadPips(),
+                               g_sessionTradeCount,
+                               RiskMgr.IsHaltTriggered(),
+                               PosMgr.IsPositionOpen());
+    }
 }
 
 //+------------------------------------------------------------------+
@@ -302,7 +391,7 @@ SAIResponse GetAIScore()
         return empty;
     }
 
-    return AIClient.RequestScoreSafe(features, direction);
+    return FileAIClient.RequestScoreSafe(features, direction);
 }
 
 bool HasNewH1Close()

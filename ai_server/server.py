@@ -59,6 +59,43 @@ def _tg_send(text: str) -> None:
     except Exception as e:
         log.warning(f"Telegram send failed: {e}")
 
+# ── Shared scoring helper ─────────────────────────────────────────────────────
+
+def _build_response(features: str, direction: str) -> dict:
+    """
+    Score a request and return the response dict.
+    Empty features array ("[]") = health-check ping — returns alive signal
+    without running models (avoids crashing on zero-length feature vector).
+    """
+    news_risk = scorer.score_news_risk()
+
+    try:
+        flist = json.loads(features)
+    except (json.JSONDecodeError, ValueError):
+        flist = []
+
+    # Health-check ping from EA's IsServerAlive() — reply without scoring
+    if len(flist) == 0:
+        return {"entry_score": 55, "trend_score": 55,
+                "news_risk": news_risk, "approve": True}
+
+    entry_score = scorer.score_entry(features)
+    trend_score = scorer.score_trend(features)
+
+    if entry_score < 0:
+        entry_score = 55
+        trend_score = 55
+        log.warning("Models not loaded — returning safe defaults")
+
+    approve = entry_score >= 65 and news_risk < 70
+    return {
+        "entry_score": entry_score,
+        "trend_score": trend_score,
+        "news_risk":   news_risk,
+        "approve":     approve,
+    }
+
+
 # ── Request handler ──────────────────────────────────────────────────────────
 
 async def handle_client(reader: asyncio.StreamReader,
@@ -92,32 +129,12 @@ async def handle_client(reader: asyncio.StreamReader,
             features  = req.get("features",  "[]")
             direction = req.get("direction", "BUY")
 
-            entry_score = scorer.score_entry(features)
-            trend_score = scorer.score_trend(features)
-            news_risk   = scorer.score_news_risk()
-
-            # If models not loaded, return safe defaults (same as server_test.py)
-            if entry_score < 0:
-                entry_score = 55
-                trend_score = 55
-                log.warning("Models not loaded — returning safe defaults")
-
-            approve = (
-                entry_score >= 65
-                and trend_score >= 50  # swing doesn't gate scalper; this is informational
-                and news_risk < 70
-            )
-
-            resp = {
-                "entry_score": entry_score,
-                "trend_score": trend_score,
-                "news_risk":   news_risk,
-                "approve":     approve,
-            }
+            resp = _build_response(features, direction)
 
             log.info(
-                f"[{direction:4s}] entry={entry_score:3d} trend={trend_score:3d} "
-                f"news={news_risk:3d} approve={approve} phase={scorer._news_shield.phase if scorer._news_shield else 'N/A'}"
+                f"[{direction:4s}] entry={resp['entry_score']:3d} trend={resp['trend_score']:3d} "
+                f"news={resp['news_risk']:3d} approve={resp['approve']} "
+                f"phase={scorer._news_shield.phase if scorer._news_shield else 'N/A'}"
             )
 
             writer.write((json.dumps(resp) + "\n").encode())
@@ -137,15 +154,17 @@ async def handle_client(reader: asyncio.StreamReader,
 
 # ── Server lifecycle ─────────────────────────────────────────────────────────
 
-async def _file_ipc_loop(files_dir: Path) -> None:
+async def _file_ipc_loop(files_dir: Path,
+                         req_name: str = "ai_request.json",
+                         resp_name: str = "ai_response.json",
+                         label: str = "Scalper") -> None:
     """
-    Poll for ai_request.json written by the MQL5 EA, score it,
-    write ai_response.json back.  Runs alongside the TCP server so
-    both transports are available simultaneously.
+    Poll for a request file written by the MQL5 EA, score it, write response back.
+    Call once per EA (scalper + swing) with different file names to avoid conflicts.
     """
-    request_file  = files_dir / "ai_request.json"
-    response_file = files_dir / "ai_response.json"
-    log.info(f"File IPC watching: {files_dir}")
+    request_file  = files_dir / req_name
+    response_file = files_dir / resp_name
+    log.info(f"File IPC [{label}] watching: {files_dir / req_name}")
 
     while True:
         try:
@@ -157,28 +176,14 @@ async def _file_ipc_loop(files_dir: Path) -> None:
                 features  = req.get("features",  "[]")
                 direction = req.get("direction", "BUY")
 
-                entry_score = scorer.score_entry(features)
-                trend_score = scorer.score_trend(features)
-                news_risk   = scorer.score_news_risk()
-
-                if entry_score < 0:
-                    entry_score = 55
-                    trend_score = 55
-
-                approve = entry_score >= 65 and news_risk < 70
-                resp = {
-                    "entry_score": entry_score,
-                    "trend_score": trend_score,
-                    "news_risk":   news_risk,
-                    "approve":     approve,
-                }
+                resp = _build_response(features, direction)
                 response_file.write_text(json.dumps(resp), encoding="utf-8")
                 log.info(
-                    f"[File/{direction}] entry={entry_score} trend={trend_score} "
-                    f"news={news_risk} approve={approve}"
+                    f"[File/{label}/{direction}] entry={resp['entry_score']} "
+                    f"trend={resp['trend_score']} news={resp['news_risk']} approve={resp['approve']}"
                 )
         except Exception as e:
-            log.error(f"File IPC error: {e}")
+            log.error(f"File IPC [{label}] error: {e}")
 
         await asyncio.sleep(0.05)   # poll every 50 ms
 
@@ -281,7 +286,10 @@ async def main_async(host: str, port: int) -> None:
     async with server:
         asyncio.ensure_future(_hourly_heartbeat())
         if files_dir:
-            asyncio.ensure_future(_file_ipc_loop(files_dir))
+            asyncio.ensure_future(_file_ipc_loop(
+                files_dir, "ai_request.json", "ai_response.json", "Scalper"))
+            asyncio.ensure_future(_file_ipc_loop(
+                files_dir, "swing_ai_request.json", "swing_ai_response.json", "Swing"))
         await server.serve_forever()
 
 

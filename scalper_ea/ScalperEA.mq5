@@ -268,9 +268,11 @@ void OnTimer()
     if(dt.day_of_week == 1 && dt.hour == 0 && dt.min < 2)
         RiskMgr.InitWeek();
 
-    // Every 5 minutes: log heartbeat to Experts tab
+    // Every 5 minutes: ping AI server + log heartbeat to Experts tab
     if(g_timerCount % 5 == 0)
     {
+        g_aiLastKnownUp = FileAIClient.IsServerAlive();
+
         string biasStr = (g_currentBias == DIR_BULL) ? "BULL"
                        : (g_currentBias == DIR_BEAR) ? "BEAR" : "NONE";
         double spread  = EntryLayer.GetSpreadPips();

@@ -165,6 +165,37 @@ public:
         return e21[0] < e50[0];
     }
 
+    // Log the pass/fail state of every 4H sub-condition — call at each 4H close
+    void LogDiagnostics()
+    {
+        bool hhhl    = IsHHHL();
+        bool lllh    = IsLLLH();
+        bool above   = IsAbove200EMA();
+        bool below   = IsBelow200EMA();
+        bool rsiBull = IsRSI14Above50();
+        bool rsiBear = IsRSI14Below50();
+        bool wkBull  = IsWeeklyBullish();
+        bool wkBear  = IsWeeklyBearish();
+
+        double ema200 = GetEMA200();
+        double rsi    = GetRSI14();
+        double price  = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+
+        PrintFormat("[4H-Diag] Structure: HHHL=%s LLLH=%s",
+            hhhl ? "Y" : "N", lllh ? "Y" : "N");
+        PrintFormat("[4H-Diag] EMA200=%.3f Price=%.3f | Above=%s Below=%s",
+            ema200, price, above ? "Y" : "N", below ? "Y" : "N");
+        PrintFormat("[4H-Diag] RSI14=%.1f | >50=%s <50=%s",
+            rsi, rsiBull ? "Y" : "N", rsiBear ? "Y" : "N");
+        PrintFormat("[4H-Diag] Weekly EMA: Bull=%s Bear=%s",
+            wkBull ? "Y" : "N", wkBear ? "Y" : "N");
+
+        bool bullAll = hhhl  && above && rsiBull && wkBull;
+        bool bearAll = lllh  && below && rsiBear && wkBear;
+        PrintFormat("[4H-Diag] => BULL=%s BEAR=%s (all conditions)",
+            bullAll ? "YES" : "no", bearAll ? "YES" : "no");
+    }
+
     // ── Main bias — returns DIR_BULL (1), DIR_BEAR (-1), DIR_NONE (0) ──
 
     int Get4HBias()
