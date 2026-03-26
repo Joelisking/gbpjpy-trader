@@ -187,6 +187,214 @@ private:
         return 0.0;
     }
 
+    // ── Historical-shift variants (used by BuildAt / BuildSequenceJson) ────
+
+    double PctChangeAt(ENUM_TIMEFRAMES tf, int tf_shift, double clip = 0.05)
+    {
+        double c[];
+        ArraySetAsSeries(c, true);
+        if(CopyClose(_Symbol, tf, tf_shift, 2, c) != 2) return 0.0;
+        if(c[1] == 0) return 0.0;
+        return Clip((c[0] - c[1]) / c[1], -clip, clip);
+    }
+
+    double PctChangeAt(string symbol, ENUM_TIMEFRAMES tf, int tf_shift, double clip = 0.05)
+    {
+        double c[];
+        ArraySetAsSeries(c, true);
+        if(CopyClose(symbol, tf, tf_shift, 2, c) != 2) return 0.0;
+        if(c[1] == 0) return 0.0;
+        return Clip((c[0] - c[1]) / c[1], -clip, clip);
+    }
+
+    double MACDHistAt(int handle, ENUM_TIMEFRAMES tf, int shift, double clip = 0.01)
+    {
+        double main_v = Buf(handle, 0, shift);
+        double sig_v  = Buf(handle, 1, shift);
+        double hist   = main_v - sig_v;
+        double close  = CloseOf(tf, shift);
+        if(close == 0) return 0.0;
+        return Clip(hist, -clip, clip) / close;
+    }
+
+    double BollingerPctBAt(int handle, ENUM_TIMEFRAMES tf, int shift)
+    {
+        double upper = Buf(handle, 1, shift);
+        double lower = Buf(handle, 2, shift);
+        double close = CloseOf(tf, shift);
+        double width = upper - lower;
+        if(width <= 0) return 0.5;
+        return Clip((close - lower) / width, 0.0, 1.0);
+    }
+
+    double VolRatioAt(ENUM_TIMEFRAMES tf, int tf_shift)
+    {
+        long vol[];
+        ArraySetAsSeries(vol, true);
+        if(CopyTickVolume(_Symbol, tf, tf_shift, 21, vol) != 21) return 1.0;
+        double avg = 0;
+        for(int i = 1; i <= 20; i++) avg += (double)vol[i];
+        avg /= 20.0;
+        if(avg <= 0) return 1.0;
+        return Clip((double)vol[0] / avg, 0.0, 5.0);
+    }
+
+    // Checks the last 2 closed bars at the time of M5 bar tf_shift
+    double EngulfingAt(ENUM_TIMEFRAMES tf, int tf_shift)
+    {
+        double o[], c[];
+        ArraySetAsSeries(o, true); ArraySetAsSeries(c, true);
+        // bars at tf_shift+1 (last closed) and tf_shift+2 (prior)
+        if(CopyOpen (_Symbol, tf, tf_shift + 1, 2, o) != 2) return 0;
+        if(CopyClose(_Symbol, tf, tf_shift + 1, 2, c) != 2) return 0;
+
+        bool bull = c[0] > o[0] && o[1] > c[1] && c[0] > o[1] && o[0] < c[1];
+        bool bear = c[0] < o[0] && c[1] > o[1] && c[0] < o[1] && o[0] > c[1];
+        if(bull) return  1.0;
+        if(bear) return -1.0;
+        return 0.0;
+    }
+
+    // Checks the last closed bar at the time of M5 bar tf_shift
+    double PinBarAt(ENUM_TIMEFRAMES tf, int tf_shift)
+    {
+        double o[], h[], l[], c[];
+        ArraySetAsSeries(o, true); ArraySetAsSeries(h, true);
+        ArraySetAsSeries(l, true); ArraySetAsSeries(c, true);
+        if(CopyOpen (_Symbol, tf, tf_shift + 1, 1, o) != 1) return 0;
+        if(CopyHigh (_Symbol, tf, tf_shift + 1, 1, h) != 1) return 0;
+        if(CopyLow  (_Symbol, tf, tf_shift + 1, 1, l) != 1) return 0;
+        if(CopyClose(_Symbol, tf, tf_shift + 1, 1, c) != 1) return 0;
+
+        double body       = MathAbs(c[0] - o[0]);
+        double upperWick  = h[0] - MathMax(o[0], c[0]);
+        double lowerWick  = MathMin(o[0], c[0]) - l[0];
+        double range      = h[0] - l[0];
+
+        if(range <= 0) return 0;
+        if(lowerWick > 2 * body && upperWick < body) return  1.0;
+        if(upperWick > 2 * body && lowerWick < body) return -1.0;
+        return 0.0;
+    }
+
+    double H4StructureAt(int h4_shift)
+    {
+        double c[];
+        ArraySetAsSeries(c, true);
+        if(CopyClose(_Symbol, PERIOD_H4, h4_shift, 61, c) != 61) return 0.0;
+
+        int up = 0, down = 0;
+        for(int i = 0; i < 60; i++)
+        {
+            if(c[i] > c[i + 1]) up++;
+            else if(c[i] < c[i + 1]) down++;
+        }
+        return (double)(up - down) / 60.0;
+    }
+
+    double EurJpyEmaAlignAt(int m5_shift)
+    {
+        double e21 = Buf(m_hEurEMA21_M5, 0, m5_shift);
+        double e50 = Buf(m_hEurEMA50_M5, 0, m5_shift);
+        if(e21 > e50) return  1.0;
+        if(e21 < e50) return -1.0;
+        return 0.0;
+    }
+
+    // Build 40-feature array for M5 bar at m5_shift bars back from current.
+    // Returns false if critical price data is unavailable.
+    bool BuildAt(int m5_shift, double &f[])
+    {
+        datetime bar_time = iTime(_Symbol, PERIOD_M5, m5_shift);
+        if(bar_time == 0) return false;
+
+        int h1_shift = iBarShift(_Symbol, PERIOD_H1, bar_time, false);
+        int h4_shift = iBarShift(_Symbol, PERIOD_H4, bar_time, false);
+        int w1_shift = iBarShift(_Symbol, PERIOD_W1, bar_time, false);
+
+        double cl_m5 = CloseOf(PERIOD_M5, m5_shift);
+        double cl_h1 = CloseOf(PERIOD_H1, h1_shift);
+        double cl_h4 = CloseOf(PERIOD_H4, h4_shift);
+        double cl_w1 = CloseOf(PERIOD_W1, w1_shift);
+        if(cl_m5 == 0 || cl_h1 == 0 || cl_h4 == 0) return false;
+
+        MqlDateTime dt;
+        TimeToStruct(bar_time, dt);
+        double hour    = dt.hour + dt.min / 60.0;
+        double pi2     = 2.0 * M_PI;
+        double sinH    = MathSin(pi2 * hour / 24.0);
+        double cosH    = MathCos(pi2 * hour / 24.0);
+        double sinD    = MathSin(pi2 * dt.day_of_week / 5.0);
+        double cosD    = MathCos(pi2 * dt.day_of_week / 5.0);
+        double london  = (dt.hour >= 7 && dt.hour < 17)  ? 1.0 : 0.0;
+        double overlap = (dt.hour >= 13 && dt.hour < 17) ? 1.0 : 0.0;
+        double carry   = 0.425;
+
+        ArrayResize(f, 40);
+
+        // M5 (f[0-11])
+        f[0]  = PctChangeAt(PERIOD_M5, m5_shift);
+        f[1]  = (cl_m5 > 0) ? Buf(m_hEMA9_M5,   0, m5_shift) / cl_m5 - 1 : 0;
+        f[2]  = (cl_m5 > 0) ? Buf(m_hEMA21_M5,  0, m5_shift) / cl_m5 - 1 : 0;
+        f[3]  = (cl_m5 > 0) ? Buf(m_hEMA50_M5,  0, m5_shift) / cl_m5 - 1 : 0;
+        f[4]  = (cl_m5 > 0) ? Buf(m_hEMA200_M5, 0, m5_shift) / cl_m5 - 1 : 0;
+        f[5]  = (cl_m5 > 0) ? Buf(m_hATR14_M5,  0, m5_shift) / cl_m5     : 0;
+        f[6]  = Buf(m_hRSI7_M5, 0, m5_shift) / 100.0;
+        f[7]  = MACDHistAt(m_hMACD_M5, PERIOD_M5, m5_shift);
+        f[8]  = BollingerPctBAt(m_hBB_M5, PERIOD_M5, m5_shift);
+        f[9]  = EngulfingAt(PERIOD_M5, m5_shift);
+        f[10] = PinBarAt(PERIOD_M5, m5_shift);
+        f[11] = VolRatioAt(PERIOD_M5, m5_shift);
+
+        // H1 (f[12-19])
+        f[12] = PctChangeAt(PERIOD_H1, h1_shift);
+        f[13] = (cl_h1 > 0) ? Buf(m_hEMA21_H1,  0, h1_shift) / cl_h1 - 1 : 0;
+        f[14] = (cl_h1 > 0) ? Buf(m_hEMA50_H1,  0, h1_shift) / cl_h1 - 1 : 0;
+        f[15] = (cl_h1 > 0) ? Buf(m_hEMA200_H1, 0, h1_shift) / cl_h1 - 1 : 0;
+        f[16] = Buf(m_hRSI14_H1, 0, h1_shift) / 100.0;
+        f[17] = MACDHistAt(m_hMACD_H1, PERIOD_H1, h1_shift);
+        f[18] = (cl_h1 > 0) ? Buf(m_hATR14_H1, 0, h1_shift) / cl_h1 : 0;
+        f[19] = VolRatioAt(PERIOD_H1, h1_shift);
+
+        // H4 (f[20-25])
+        f[20] = PctChangeAt(PERIOD_H4, h4_shift);
+        f[21] = (cl_h4 > 0) ? Buf(m_hEMA50_H4,  0, h4_shift) / cl_h4 - 1 : 0;
+        f[22] = (cl_h4 > 0) ? Buf(m_hEMA200_H4, 0, h4_shift) / cl_h4 - 1 : 0;
+        f[23] = Buf(m_hRSI14_H4, 0, h4_shift) / 100.0;
+        f[24] = (cl_h4 > 0) ? Buf(m_hATR14_H4, 0, h4_shift) / cl_h4 : 0;
+        f[25] = H4StructureAt(h4_shift);
+
+        // W1 (f[26-29])
+        f[26] = PctChangeAt(PERIOD_W1, w1_shift, 0.10);
+        f[27] = (cl_w1 > 0) ? Buf(m_hEMA21_W1, 0, w1_shift) / cl_w1 - 1 : 0;
+        f[28] = (cl_w1 > 0) ? Buf(m_hEMA50_W1, 0, w1_shift) / cl_w1 - 1 : 0;
+        {
+            double e21 = Buf(m_hEMA21_W1, 0, w1_shift);
+            double e50 = Buf(m_hEMA50_W1, 0, w1_shift);
+            f[29] = (e21 > e50) ? 1.0 : (e21 < e50) ? -1.0 : 0.0;
+        }
+
+        // EUR/JPY (f[30-32])
+        int eur_m5_shift = iBarShift("EURJPY", PERIOD_M5, bar_time, false);
+        int eur_h1_shift = iBarShift("EURJPY", PERIOD_H1, bar_time, false);
+        f[30] = PctChangeAt("EURJPY", PERIOD_M5, eur_m5_shift);
+        f[31] = EurJpyEmaAlignAt(m5_shift);
+        f[32] = Buf(m_hEurRSI14_H1, 0, eur_h1_shift) / 100.0;
+
+        // Time (f[33-38])
+        f[33] = sinH;
+        f[34] = cosH;
+        f[35] = sinD;
+        f[36] = cosD;
+        f[37] = london;
+        f[38] = overlap;
+
+        // Carry (f[39])
+        f[39] = carry;
+
+        return true;
+    }
+
 public:
     bool Init()
     {
@@ -353,6 +561,37 @@ public:
             if(i < 39) json += ",";
         }
         return json + "]";
+    }
+
+    // Build a flat JSON array of seq_len * 40 floats ordered oldest→newest.
+    // The Python scorer reshapes this to (seq_len, 40) for BiLSTM inference.
+    // Returns "" if insufficient history is available.
+    string BuildSequenceJson(int seq_len = 200)
+    {
+        string json;
+        StringReserve(json, seq_len * 40 * 10 + 16);
+        json = "[";
+
+        bool first = true;
+        for(int s = seq_len - 1; s >= 0; s--)  // oldest to newest
+        {
+            double f[];
+            if(!BuildAt(s, f))
+            {
+                ArrayResize(f, 40);
+                ArrayInitialize(f, 0.0);
+            }
+
+            for(int i = 0; i < 40; i++)
+            {
+                if(!first) json += ",";
+                json += StringFormat("%.6f", f[i]);
+                first = false;
+            }
+        }
+
+        json += "]";
+        return json;
     }
 };
 #endif // FEATUREBUILDER_MQH

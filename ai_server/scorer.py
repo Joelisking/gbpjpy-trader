@@ -108,17 +108,16 @@ class AIScorer:
         return ok
 
     def _predict_ensemble(self, features: np.ndarray,
-                          bilstm, xgb_model, scaler,
+                          bilstm, xgb_model,
                           seq_len: int,
-                          bilstm_weight: float = 0.60) -> float:
+                          bilstm_weight: float = 0.60,
+                          sequence: Optional[np.ndarray] = None) -> float:
         """
-        Run ensemble inference on a flat feature vector.
-        features: 1D array of raw feature values (unscaled)
+        Run ensemble inference.
+        features: 1D pre-scaled array for the last bar (used by XGBoost)
+        sequence: optional pre-scaled (seq_len, n_features) array for BiLSTM
         Returns score in 0-1 range.
         """
-        if scaler is not None:
-            features = scaler.transform(features.reshape(1, -1))[0]
-
         # XGBoost uses flat features (last bar)
         xgb_score = 0.5
         if xgb_model is not None:
@@ -130,11 +129,12 @@ class AIScorer:
                 xgb_score = float(xgb_model.predict(features.reshape(1, -1))[0])
             xgb_score = float(np.clip(xgb_score, 0, 1))
 
-        # BiLSTM uses sequence — Phase 3: MT5 will send full 200-bar sequence
-        # For now: tile the single bar across seq_len (Phase 2 fallback)
         bl_score = xgb_score  # default to XGBoost if no BiLSTM
         if bilstm is not None:
-            seq = np.tile(features, (seq_len, 1))[np.newaxis, :, :]
+            if sequence is not None:
+                seq = sequence[np.newaxis, :, :]          # (1, seq_len, n_features)
+            else:
+                seq = np.tile(features, (seq_len, 1))[np.newaxis, :, :]  # fallback
             bl_score = float(bilstm.predict(seq, verbose=0)[0][0])
             bl_score = float(np.clip(bl_score, 0, 1))
 
@@ -148,23 +148,46 @@ class AIScorer:
     def score_entry(self, features_json: str) -> int:
         """
         Score scalper entry quality.
-        features_json: JSON array of floats from MQL5 FeatureBuilder
+        features_json: JSON array from MQL5 — either n_features floats (single bar,
+                       health-check / compat) or seq_len*n_features floats (full
+                       200-bar sequence for BiLSTM+XGBoost ensemble).
         Returns entry score 0-100.
         """
         if not self._loaded or (self._scalper_bilstm is None and self._scalper_xgb is None):
             return -1  # signal: models not loaded
 
         try:
-            features = np.array(features_json if isinstance(features_json, list) else json.loads(features_json), dtype=np.float32)
+            flist = features_json if isinstance(features_json, list) else json.loads(features_json)
         except (json.JSONDecodeError, ValueError):
             return -1
 
-        seq_len = self._scalper_cfg.get("seq_len", 200)
+        seq_len       = self._scalper_cfg.get("seq_len", 200)
+        n_features    = self._scalper_cfg.get("n_features", 40)
+        bilstm_weight = self._scalper_cfg.get("bilstm_weight", 0.60)
+
+        sequence = None
+        if len(flist) == seq_len * n_features:
+            # Full sequence from MT5 — scale entire sequence, use last bar for XGBoost
+            raw_seq = np.array(flist, dtype=np.float32).reshape(seq_len, n_features)
+            if self._scaler_scalper is not None:
+                sequence = self._scaler_scalper.transform(raw_seq).astype(np.float32)
+            else:
+                sequence = raw_seq
+            features = sequence[-1]
+        elif len(flist) == n_features:
+            # Single bar (health check or legacy)
+            raw = np.array(flist, dtype=np.float32)
+            features = self._scaler_scalper.transform(raw.reshape(1, -1))[0] \
+                       if self._scaler_scalper is not None else raw
+        else:
+            return -1
+
         raw = self._predict_ensemble(
             features,
-            self._scalper_bilstm, self._scalper_xgb, self._scaler_scalper,
+            self._scalper_bilstm, self._scalper_xgb,
             seq_len,
-            bilstm_weight=0.0,  # XGBoost-only until Phase 3 sends full sequences
+            bilstm_weight=bilstm_weight,
+            sequence=sequence,
         )
         return int(round(raw * 100))
 
@@ -181,11 +204,17 @@ class AIScorer:
         except (json.JSONDecodeError, ValueError):
             return -1
 
-        seq_len = self._swing_cfg.get("seq_len", 60)
+        seq_len       = self._swing_cfg.get("seq_len", 60)
+        bilstm_weight = self._swing_cfg.get("bilstm_weight", 0.0)
+
+        if self._scaler_swing is not None:
+            features = self._scaler_swing.transform(features.reshape(1, -1))[0]
+
         raw = self._predict_ensemble(
             features,
-            self._swing_bilstm, self._swing_xgb, self._scaler_swing,
+            self._swing_bilstm, self._swing_xgb,
             seq_len,
+            bilstm_weight=bilstm_weight,
         )
         return int(round(raw * 100))
 

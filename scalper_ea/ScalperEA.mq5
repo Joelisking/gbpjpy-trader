@@ -310,7 +310,7 @@ void OnTimer()
 
 SAIResponse GetAIScore()
 {
-    string features  = FeatureBuilder.Build();
+    string features  = FeatureBuilder.BuildSequenceJson(200);
     string direction = (g_currentBias == 1) ? "BUY" : "SELL";
     return FileAIClient.RequestScoreSafe(features, direction);
 }
